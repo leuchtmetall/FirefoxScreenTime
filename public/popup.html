@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Screen Time</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="mark">ST</div>
+        <div>
+          <p class="eyebrow">Daily attention</p>
+          <h1>Screen Time</h1>
+        </div>
+      </header>
+
+      <section class="meter" aria-label="Today's usage">
+        <div>
+          <span class="label">Used today</span>
+          <strong id="elapsed">0:00</strong>
+        </div>
+        <span id="remaining" class="remaining">Loading</span>
+      </section>
+      <div class="tab-row">
+        <p id="state-label" class="tab-state">Checking this tab...</p>
+        <button id="toggle-tab" class="secondary" type="button" hidden>Stop tracking this tab</button>
+      </div>
+
+      <form id="settings-form">
+        <label for="daily-limit">Daily allowance</label>
+        <div class="limit-row">
+          <input id="daily-limit" name="daily-limit" type="number" min="1" max="1440" step="1" required>
+          <span>minutes</span>
+        </div>
+
+        <label for="hostnames">Tracked sites</label>
+        <textarea id="hostnames" name="hostnames" rows="5" spellcheck="false" placeholder="example.com&#10;news.example.org"></textarea>
+        <p class="hint">One hostname per line. Subdomains are included. Child tabs opened from tracked tabs inherit tracking.</p>
+
+        <div class="form-footer">
+          <span id="feedback" role="status"></span>
+          <button type="submit">Save settings</button>
+        </div>
+      </form>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

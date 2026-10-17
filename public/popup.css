@@ -1,0 +1,77 @@
+:root {
+  color-scheme: light;
+  font-family: ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif;
+  background: #f1ecdf;
+  color: #17231f;
+}
+
+* { box-sizing: border-box; }
+
+body { margin: 0; min-width: 340px; }
+
+main { padding: 22px; }
+
+header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+
+.mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 12px;
+  background: #d85832;
+  color: #fff8ed;
+  font: 800 13px Georgia, serif;
+  letter-spacing: .06em;
+}
+
+.eyebrow { margin: 0 0 2px; color: #8e4e36; font-size: 10px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+h1 { margin: 0; font: 400 25px/1 Georgia, serif; }
+
+.meter {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  padding: 18px;
+  border-radius: 15px;
+  background: #17231f;
+  color: #f7f1df;
+  box-shadow: 0 8px 24px rgb(33 44 39 / 12%);
+}
+
+.label { display: block; margin-bottom: 3px; color: #9eaaa3; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.meter strong { font: 400 35px/1 Georgia, serif; font-variant-numeric: tabular-nums; }
+.remaining { color: #f09a72; font-size: 12px; font-weight: 800; }
+.tab-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 3px 22px; min-height: 30px; }
+.tab-state { margin: 0; color: #54625b; font-size: 12px; }
+.tab-state[data-tracked="true"] { color: #a54125; font-weight: 750; }
+
+form { border-top: 1px solid #d4cdbf; padding-top: 18px; }
+label { display: block; margin: 0 0 7px; font-size: 12px; font-weight: 800; }
+.limit-row { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; color: #65716b; font-size: 12px; }
+input, textarea {
+  border: 1px solid #c5beb1;
+  border-radius: 9px;
+  background: #fbf8f0;
+  color: #17231f;
+  font: 14px ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif;
+}
+input { width: 82px; padding: 9px 10px; }
+textarea { width: 100%; resize: vertical; padding: 10px 11px; line-height: 1.45; }
+input:focus, textarea:focus { border-color: #d85832; outline: 2px solid rgb(216 88 50 / 16%); }
+.hint { margin: 7px 2px 16px; color: #66716c; font-size: 10px; line-height: 1.45; }
+.form-footer { display: flex; align-items: center; justify-content: space-between; min-height: 34px; }
+#feedback { color: #8e4e36; font-size: 11px; }
+button {
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 16px;
+  background: #d85832;
+  color: #fff;
+  font: 800 12px ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif;
+  cursor: pointer;
+}
+button:hover, button:focus-visible { background: #bd4323; outline: 2px solid rgb(216 88 50 / 22%); }
+button.secondary { padding: 6px 12px; border: 1px solid #c5beb1; background: transparent; color: #8e4e36; font-size: 11px; white-space: nowrap; }
+button.secondary:hover, button.secondary:focus-visible { border-color: #d85832; background: #fbf8f0; }
+button:disabled { opacity: .6; cursor: default; }
