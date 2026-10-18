@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Screen Time",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "Track a shared daily allowance across selected sites and their child tabs.",
   "permissions": ["storage", "alarms", "webNavigation", "sessions"],
   "host_permissions": ["<all_urls>"],

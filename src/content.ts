@@ -1,3 +1,5 @@
+import * as styles from "./overlay-styles.ts";
+import { applyButtonStyle, applyStyle, type Style } from "./overlay-styles.ts";
 import { overlayMode } from "./shared/tracking.ts";
 import type {
   ContentUpdate,
@@ -17,6 +19,82 @@ function formatDuration(milliseconds: number): string {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+type ExtendDuration = Extract<ExtensionRequest, { type: "extend" }>["durationMinutes"];
+
+interface OverlayView {
+  root: HTMLElement;
+  note: HTMLElement;
+  extensions: { button: HTMLButtonElement; durationMinutes: ExtendDuration }[];
+}
+
+function createElement<K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  style: Style,
+  ...children: (Node | string)[]
+): HTMLElementTagNameMap[K] {
+  const element = document.createElement(tag);
+  applyStyle(element, style);
+  element.append(...children);
+  return element;
+}
+
+function createDialog(eyebrow: string, title: string, ...content: Node[]): HTMLElement {
+  const heading = createElement("h1", styles.title, title);
+  heading.id = "screen-time-title";
+  const veil = createElement(
+    "div",
+    styles.veil,
+    createElement("main", styles.card, createElement("div", styles.eyebrow, eyebrow), heading, ...content),
+  );
+  veil.setAttribute("role", "dialog");
+  veil.setAttribute("aria-modal", "true");
+  veil.setAttribute("aria-labelledby", heading.id);
+  return veil;
+}
+
+function buildBlockAllView(): OverlayView {
+  const note = createElement("div", styles.note, "Turn this mode off from the Screen Time toolbar button.");
+  const root = createDialog(
+    "Block everything",
+    "Everything is paused.",
+    createElement(
+      "p",
+      styles.message,
+      "All pages are blocked and your daily timer is on hold. The page is still here beneath this screen.",
+    ),
+    note,
+  );
+  return { root, note, extensions: [] };
+}
+
+function buildTimeUpView(status: StatusSnapshot): OverlayView {
+  const extensions = ([
+    ["Add 5 minutes", 5, styles.button],
+    ["Add 15 minutes", 15, styles.button],
+    ["Allow for today", "rest-of-day", styles.primaryButton],
+  ] as const).map(([label, durationMinutes, buttonStyles]) => {
+    const button = document.createElement("button");
+    button.textContent = label;
+    applyButtonStyle(button, buttonStyles);
+    return { button, durationMinutes };
+  });
+  const note = createElement("div", styles.note, "Your allowance resets at local midnight.");
+  const root = createDialog(
+    "Daily pause",
+    "Time is up.",
+    createElement(
+      "p",
+      styles.message,
+      "You have used ",
+      createElement("span", styles.time, formatDuration(status.elapsedMs)),
+      " of tracked time today. The page is still here beneath this screen.",
+    ),
+    createElement("div", styles.actions, ...extensions.map(({ button }) => button)),
+    note,
+  );
+  return { root, note, extensions };
 }
 
 function preventInteraction(event: Event): void {
@@ -52,69 +130,10 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
   overlayHost = undefined;
   const host = document.createElement("div");
   host.setAttribute("data-firefox-screen-time", "blocked");
-  host.style.setProperty("display", "block", "important");
-  host.style.setProperty("position", "fixed", "important");
-  host.style.setProperty("inset", "0", "important");
-  host.style.setProperty("z-index", "2147483647", "important");
-  host.style.setProperty("visibility", "visible", "important");
-  host.style.setProperty("opacity", "1", "important");
+  applyStyle(host, styles.host);
   const shadow = host.attachShadow({ mode: "closed" });
-  shadow.innerHTML = `
-    <style>
-      :host { all: initial; }
-      .veil {
-        position: fixed;
-        inset: 0;
-        z-index: 2147483647;
-        display: grid;
-        place-items: center;
-        box-sizing: border-box;
-        padding: 24px;
-        background: #17231f;
-        color: #f7f1df;
-        font-family: ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif;
-      }
-      .card { width: min(540px, 100%); text-align: center; }
-      .eyebrow { color: #f09a72; font-size: 12px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; }
-      h1 { margin: 14px 0 10px; font-family: Georgia, serif; font-size: clamp(34px, 7vw, 58px); font-weight: 400; line-height: 1; }
-      p { margin: 0 auto 30px; max-width: 430px; color: #c9d0c5; font-size: 16px; line-height: 1.55; }
-      .time { color: #fff; font-weight: 750; }
-      .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-      button {
-        border: 1px solid #52625a;
-        border-radius: 999px;
-        padding: 11px 18px;
-        background: transparent;
-        color: #f7f1df;
-        font: 700 14px ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif;
-        cursor: pointer;
-      }
-      button:hover, button:focus-visible { border-color: #f09a72; background: #26362f; outline: none; }
-      button.primary { border-color: #e16a3d; background: #d85832; }
-      button.primary:hover, button.primary:focus-visible { background: #ec7045; }
-      .note { margin-top: 24px; color: #7f9087; font-size: 12px; }
-    </style>
-    <div class="veil" role="dialog" aria-modal="true" aria-labelledby="screen-time-title">
-      <main class="card">
-${mode === "block-all" ? `
-        <div class="eyebrow">Block everything</div>
-        <h1 id="screen-time-title">Everything is paused.</h1>
-        <p>All pages are blocked and your daily timer is on hold. The page is still here beneath this screen.</p>
-        <div class="note">Turn this mode off from the Screen Time toolbar button.</div>` : `
-        <div class="eyebrow">Daily pause</div>
-        <h1 id="screen-time-title">Time is up.</h1>
-        <p>You have used <span class="time" data-elapsed></span> of tracked time today. The page is still here beneath this screen.</p>
-        <div class="actions">
-          <button data-duration="5">Add 5 minutes</button>
-          <button data-duration="15">Add 15 minutes</button>
-          <button class="primary" data-duration="rest-of-day">Allow for today</button>
-        </div>
-        <div class="note" data-note>Your allowance resets at local midnight.</div>`}
-      </main>
-    </div>
-  `;
-  const elapsed = shadow.querySelector<HTMLElement>("[data-elapsed]");
-  if (elapsed) elapsed.textContent = formatDuration(status.elapsedMs);
+  const view = mode === "block-all" ? buildBlockAllView() : buildTimeUpView(status);
+  shadow.append(view.root);
   overlayHost = host;
   (document.documentElement ?? document).append(host);
 
@@ -127,35 +146,26 @@ ${mode === "block-all" ? `
   window.addEventListener("touchmove", preventInteraction, { capture: true, passive: false });
   window.addEventListener("keydown", preventInteraction, true);
 
-  shadow.querySelectorAll<HTMLButtonElement>("button[data-duration]").forEach((button) => {
+  const setButtonsDisabled = (disabled: boolean): void => {
+    for (const { button } of view.extensions) button.disabled = disabled;
+  };
+  for (const { button, durationMinutes } of view.extensions) {
     button.addEventListener("click", async () => {
-      const value = button.dataset.duration;
-      const durationMinutes = value === "rest-of-day" ? value : value === "5" ? 5 : 15;
-      shadow.querySelectorAll<HTMLButtonElement>("button").forEach((candidate) => {
-        candidate.disabled = true;
-      });
+      setButtonsDisabled(true);
       try {
         const response = await browser.runtime.sendMessage({
           type: "extend",
           durationMinutes,
         } satisfies ExtensionRequest) as ExtensionResponse;
         if (response.ok && !response.status.blocked && !response.status.blockAll) removeOverlay();
-        else if (!response.ok) {
-          const note = shadow.querySelector<HTMLElement>("[data-note]");
-          if (note) note.textContent = response.error;
-        }
+        else if (!response.ok) view.note.textContent = response.error;
       } catch {
-        const note = shadow.querySelector<HTMLElement>("[data-note]");
-        if (note) note.textContent = "Could not extend the allowance. Please try again.";
+        view.note.textContent = "Could not extend the allowance. Please try again.";
       } finally {
-        if (overlayHost?.isConnected) {
-          shadow.querySelectorAll<HTMLButtonElement>("button").forEach((candidate) => {
-            candidate.disabled = false;
-          });
-        }
+        if (overlayHost?.isConnected) setButtonsDisabled(false);
       }
     });
-  });
+  }
 }
 
 function applyUpdate(mode: OverlayMode | undefined, status: StatusSnapshot): void {
