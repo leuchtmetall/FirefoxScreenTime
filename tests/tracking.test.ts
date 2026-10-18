@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { setTabExcluded, transitionTabState } from "../src/shared/tracking.ts";
+import { overlayMode, setTabExcluded, transitionTabState } from "../src/shared/tracking.ts";
 
 const configured = ["example.com"];
 
@@ -57,5 +57,18 @@ describe("tab tracking transitions", () => {
   test("re-including a tab restores direct and inherited tracking", () => {
     const excluded = { inherited: true, excluded: true, tracked: false, url: "https://elsewhere.test" };
     expect(setTabExcluded(excluded, "https://elsewhere.test", configured, false).tracked).toBe(true);
+  });
+});
+
+describe("overlay mode", () => {
+  test("block-everything mode covers every tab", () => {
+    expect(overlayMode({ blockAll: true, blocked: false }, false)).toBe("block-all");
+    expect(overlayMode({ blockAll: true, blocked: true }, true)).toBe("block-all");
+  });
+
+  test("regular mode only covers tracked tabs past the limit", () => {
+    expect(overlayMode({ blockAll: false, blocked: true }, true)).toBe("limit");
+    expect(overlayMode({ blockAll: false, blocked: true }, false)).toBeUndefined();
+    expect(overlayMode({ blockAll: false, blocked: false }, true)).toBeUndefined();
   });
 });

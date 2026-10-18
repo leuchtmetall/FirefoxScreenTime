@@ -1,4 +1,4 @@
-import type { TabTrackingState } from "./types.ts";
+import type { OverlayMode, StatusSnapshot, TabTrackingState } from "./types.ts";
 import { isTrackedUrl } from "./urls.ts";
 
 export function transitionTabState(
@@ -11,6 +11,15 @@ export function transitionTabState(
   const inherited = typedNavigation && !direct ? false : (previous?.inherited ?? false);
   const excluded = previous?.excluded ?? false;
   return { inherited, excluded, tracked: !excluded && (direct || inherited), url };
+}
+
+/** Block-everything mode covers every tab; otherwise only tracked tabs past the daily limit. */
+export function overlayMode(
+  status: Pick<StatusSnapshot, "blockAll" | "blocked">,
+  tracked: boolean,
+): OverlayMode | undefined {
+  if (status.blockAll) return "block-all";
+  return tracked && status.blocked ? "limit" : undefined;
 }
 
 /** Manually excludes a tab from tracking (or re-includes it), keeping it excluded across navigations. */

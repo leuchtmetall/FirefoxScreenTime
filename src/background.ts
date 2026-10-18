@@ -5,9 +5,10 @@ import {
   isDailyBlocked,
   rollUsageToNow,
 } from "./shared/daily.ts";
-import { setTabExcluded, transitionTabState } from "./shared/tracking.ts";
+import { overlayMode, setTabExcluded, transitionTabState } from "./shared/tracking.ts";
 import {
   DEFAULT_SETTINGS,
+  STORAGE_BLOCK_ALL_KEY,
   STORAGE_SETTINGS_KEY,
   STORAGE_USAGE_KEY,
   TAB_EXCLUDED_KEY,
@@ -27,6 +28,8 @@ const tabStates = new Map<number, TabTrackingState>();
 
 let settings: Settings = DEFAULT_SETTINGS;
 let usage: DailyUsage = freshDailyUsage(Date.now());
+/** Block-everything mode: all tabs are covered and the daily timer is paused. Persists until toggled off. */
+let blockAll = false;
 let focusedWindowId = browser.windows.WINDOW_ID_NONE;
 let activeTabId: number | undefined;
 let activeStartedAt: number | undefined;
@@ -44,7 +47,8 @@ function enqueue<T>(operation: () => Promise<T>): Promise<T> {
 
 async function initialize(): Promise<void> {
   const now = Date.now();
-  const stored = await browser.storage.local.get([STORAGE_SETTINGS_KEY, STORAGE_USAGE_KEY]);
+  const stored = await browser.storage.local.get([STORAGE_SETTINGS_KEY, STORAGE_USAGE_KEY, STORAGE_BLOCK_ALL_KEY]);
+  blockAll = stored[STORAGE_BLOCK_ALL_KEY] === true;
   const storedSettings = stored[STORAGE_SETTINGS_KEY] as Settings | undefined;
   const storedUsage = stored[STORAGE_USAGE_KEY] as DailyUsage | undefined;
 
@@ -98,6 +102,7 @@ function validateSettings(candidate: Settings): Settings {
 }
 
 function canAccumulate(): boolean {
+  if (blockAll) return false;
   if (activeTabId === undefined || focusedWindowId === browser.windows.WINDOW_ID_NONE) return false;
   return tabStates.get(activeTabId)?.tracked === true && !isDailyBlocked(usage, settings.dailyLimitMinutes);
 }
@@ -128,6 +133,7 @@ function snapshot(tabId = activeTabId): StatusSnapshot {
     elapsedMs: usage.elapsedMs,
     effectiveLimitMs: effectiveLimitMs(usage, settings.dailyLimitMinutes),
     blocked: isDailyBlocked(usage, settings.dailyLimitMinutes),
+    blockAll,
     currentTabTracked: tabId !== undefined && tabStates.get(tabId)?.tracked === true,
     currentTabExcluded: tabId !== undefined && tabStates.get(tabId)?.excluded === true,
   };
@@ -139,25 +145,25 @@ async function refreshTab(tabId: number): Promise<void> {
   const tracked = state?.tracked === true;
   const update: ContentUpdate = {
     type: "tracking-update",
-    blocked: tracked && status.blocked,
+    mode: overlayMode(status, tracked),
     status,
   };
+  const title = blockAll
+    ? "Screen Time: blocking everything"
+    : tracked
+      ? status.blocked
+        ? "Screen Time: daily limit reached"
+        : `Screen Time: tracked, ${formatRemaining(status)} remaining`
+      : state?.excluded
+        ? "Screen Time: removed from tracking"
+        : "Screen Time: not tracked";
 
   await Promise.all([
     browser.action.setIcon({
       tabId,
-      path: tracked ? "icons/active.svg" : "icons/inactive.svg",
+      path: tracked || blockAll ? "icons/active.svg" : "icons/inactive.svg",
     }).catch(() => undefined),
-    browser.action.setTitle({
-      tabId,
-      title: tracked
-        ? status.blocked
-          ? "Screen Time: daily limit reached"
-          : `Screen Time: tracked, ${formatRemaining(status)} remaining`
-        : state?.excluded
-          ? "Screen Time: removed from tracking"
-          : "Screen Time: not tracked",
-    }).catch(() => undefined),
+    browser.action.setTitle({ tabId, title }).catch(() => undefined),
     browser.tabs.sendMessage(tabId, update).catch(() => undefined),
   ]);
 }
@@ -292,6 +298,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender): Promise<Extens
     && request.type !== "save-settings"
     && request.type !== "extend"
     && request.type !== "set-tab-excluded"
+    && request.type !== "set-block-all"
   ) return undefined;
 
   return enqueue(async () => {
@@ -306,6 +313,10 @@ browser.runtime.onMessage.addListener((message: unknown, sender): Promise<Extens
         for (const tab of tabs) {
           if (tab.id !== undefined) await setTabState(tab.id, tab.url, false);
         }
+      } else if (request.type === "set-block-all") {
+        if (typeof request.enabled !== "boolean") throw new Error("Invalid block-everything request.");
+        blockAll = request.enabled;
+        await browser.storage.local.set({ [STORAGE_BLOCK_ALL_KEY]: blockAll });
       } else if (request.type === "set-tab-excluded") {
         const tabId = request.tabId;
         if (typeof tabId !== "number" || typeof request.excluded !== "boolean") throw new Error("Invalid tab request.");
@@ -313,6 +324,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender): Promise<Extens
         tabStates.set(tabId, setTabExcluded(tabStates.get(tabId), tab.url, settings.trackedHostnames, request.excluded));
         await browser.sessions.setTabValue(tabId, TAB_EXCLUDED_KEY, request.excluded).catch(() => undefined);
       } else if (request.type === "extend") {
+        if (blockAll) throw new Error("Turn off block-everything mode first.");
         if (request.durationMinutes === "rest-of-day") {
           usage.blockingDisabled = true;
         } else if (request.durationMinutes === 5 || request.durationMinutes === 15) {
@@ -325,7 +337,7 @@ browser.runtime.onMessage.addListener((message: unknown, sender): Promise<Extens
 
       beginActiveSession(now);
       await refreshAllTabs();
-      const statusTabId = request.type === "set-tab-excluded" || request.type === "get-status"
+      const statusTabId = request.type === "set-tab-excluded" || request.type === "get-status" || request.type === "set-block-all"
         ? (request.tabId ?? sender.tab?.id)
         : sender.tab?.id;
       return { ok: true, status: snapshot(statusTabId ?? activeTabId) };

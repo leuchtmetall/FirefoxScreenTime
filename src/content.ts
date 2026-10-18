@@ -1,13 +1,16 @@
+import { overlayMode } from "./shared/tracking.ts";
 import type {
   ContentUpdate,
   ExtensionRequest,
   ExtensionResponse,
+  OverlayMode,
   StatusSnapshot,
 } from "./shared/types.ts";
 
 let overlayHost: HTMLDivElement | undefined;
 let overlayObserver: MutationObserver | undefined;
 let blockedStatus: StatusSnapshot | undefined;
+let shownMode: OverlayMode | undefined;
 
 function formatDuration(milliseconds: number): string {
   const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60_000));
@@ -26,6 +29,7 @@ function preventInteraction(event: Event): void {
 
 function removeOverlay(): void {
   blockedStatus = undefined;
+  shownMode = undefined;
   overlayObserver?.disconnect();
   overlayObserver = undefined;
   overlayHost?.remove();
@@ -35,9 +39,14 @@ function removeOverlay(): void {
   window.removeEventListener("keydown", preventInteraction, true);
 }
 
-function showOverlay(status: StatusSnapshot): void {
+function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
+  if (overlayHost?.isConnected && shownMode === mode) {
+    blockedStatus = status;
+    return;
+  }
+  if (overlayHost?.isConnected) removeOverlay();
   blockedStatus = status;
-  if (overlayHost?.isConnected) return;
+  shownMode = mode;
   overlayObserver?.disconnect();
   overlayObserver = undefined;
   overlayHost = undefined;
@@ -87,6 +96,11 @@ function showOverlay(status: StatusSnapshot): void {
     </style>
     <div class="veil" role="dialog" aria-modal="true" aria-labelledby="screen-time-title">
       <main class="card">
+${mode === "block-all" ? `
+        <div class="eyebrow">Block everything</div>
+        <h1 id="screen-time-title">Everything is paused.</h1>
+        <p>All pages are blocked and your daily timer is on hold. The page is still here beneath this screen.</p>
+        <div class="note">Turn this mode off from the Screen Time toolbar button.</div>` : `
         <div class="eyebrow">Daily pause</div>
         <h1 id="screen-time-title">Time is up.</h1>
         <p>You have used <span class="time" data-elapsed></span> of tracked time today. The page is still here beneath this screen.</p>
@@ -95,7 +109,7 @@ function showOverlay(status: StatusSnapshot): void {
           <button data-duration="15">Add 15 minutes</button>
           <button class="primary" data-duration="rest-of-day">Allow for today</button>
         </div>
-        <div class="note" data-note>Your allowance resets at local midnight.</div>
+        <div class="note" data-note>Your allowance resets at local midnight.</div>`}
       </main>
     </div>
   `;
@@ -105,7 +119,7 @@ function showOverlay(status: StatusSnapshot): void {
   (document.documentElement ?? document).append(host);
 
   overlayObserver = new MutationObserver(() => {
-    if (blockedStatus && !overlayHost?.isConnected) showOverlay(blockedStatus);
+    if (blockedStatus && shownMode && !overlayHost?.isConnected) showOverlay(blockedStatus, shownMode);
   });
   overlayObserver.observe(document.documentElement, { childList: true });
 
@@ -125,7 +139,7 @@ function showOverlay(status: StatusSnapshot): void {
           type: "extend",
           durationMinutes,
         } satisfies ExtensionRequest) as ExtensionResponse;
-        if (response.ok && !response.status.blocked) removeOverlay();
+        if (response.ok && !response.status.blocked && !response.status.blockAll) removeOverlay();
         else if (!response.ok) {
           const note = shadow.querySelector<HTMLElement>("[data-note]");
           if (note) note.textContent = response.error;
@@ -144,20 +158,20 @@ function showOverlay(status: StatusSnapshot): void {
   });
 }
 
-function applyUpdate(blocked: boolean, status: StatusSnapshot): void {
-  if (blocked) showOverlay(status);
+function applyUpdate(mode: OverlayMode | undefined, status: StatusSnapshot): void {
+  if (mode) showOverlay(status, mode);
   else removeOverlay();
 }
 
 browser.runtime.onMessage.addListener((message: unknown) => {
   const update = message as Partial<ContentUpdate>;
-  if (update.type === "tracking-update" && typeof update.blocked === "boolean" && update.status) {
-    applyUpdate(update.blocked, update.status);
+  if (update.type === "tracking-update" && update.status) {
+    applyUpdate(update.mode, update.status);
   }
 });
 
 void browser.runtime.sendMessage({ type: "get-status" } satisfies ExtensionRequest)
   .then((response: ExtensionResponse) => {
-    if (response.ok) applyUpdate(response.status.blocked && response.status.currentTabTracked, response.status);
+    if (response.ok) applyUpdate(overlayMode(response.status, response.status.currentTabTracked), response.status);
   })
   .catch(() => undefined);
