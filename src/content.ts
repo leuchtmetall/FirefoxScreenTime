@@ -168,6 +168,17 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
   }
 }
 
+/**
+ * Removes overlay hosts left behind by a previous instance of this content script. Firefox gives
+ * content scripts no reliable unload hook: when the extension is reloaded or disabled, the old
+ * script's context is torn down but the DOM nodes it inserted stay in the page.
+ */
+function removeStaleOverlays(): void {
+  for (const host of document.querySelectorAll("[data-firefox-screen-time]")) {
+    if (host !== overlayHost) host.remove();
+  }
+}
+
 function applyUpdate(mode: OverlayMode | undefined, status: StatusSnapshot): void {
   if (mode) showOverlay(status, mode);
   else removeOverlay();
@@ -184,4 +195,6 @@ void browser.runtime.sendMessage({ type: "get-status" } satisfies ExtensionReque
   .then((response: ExtensionResponse) => {
     if (response.ok) applyUpdate(overlayMode(response.status, response.status.currentTabTracked), response.status);
   })
-  .catch(() => undefined);
+  .catch(() => undefined)
+  // Clean up after applying the current state so a still-blocked page never flashes uncovered.
+  .finally(removeStaleOverlays);
