@@ -13,7 +13,6 @@ const hostnamesInput = requiredElement<HTMLTextAreaElement>("hostnames");
 const form = requiredElement<HTMLFormElement>("settings-form");
 const feedback = requiredElement("feedback");
 const toggleTab = requiredElement<HTMLButtonElement>("toggle-tab");
-const blockAllLabel = requiredElement("block-all-label");
 const toggleBlockAll = requiredElement<HTMLButtonElement>("toggle-block-all");
 let blockAll = false;
 let currentTabId: number | undefined;
@@ -37,8 +36,9 @@ function formatDuration(milliseconds: number): string {
 
 function render(status: StatusSnapshot, populateForm = false): void {
   elapsed.textContent = formatDuration(status.elapsedMs);
+  remaining.dataset.blockAll = String(status.blockAll);
   remaining.textContent = status.blockAll
-    ? "Timer paused"
+    ? "Blocking everything · paused"
     : status.usage.blockingDisabled
     ? "Open for today"
     : `${formatDuration(Math.max(0, status.effectiveLimitMs - status.elapsedMs))} left`;
@@ -52,8 +52,6 @@ function render(status: StatusSnapshot, populateForm = false): void {
   toggleTab.hidden = currentTabId === undefined || (!status.currentTabTracked && !status.currentTabExcluded);
   toggleTab.textContent = status.currentTabExcluded ? "Track this tab again" : "Stop tracking this tab";
   blockAll = status.blockAll;
-  blockAllLabel.textContent = status.blockAll ? "Blocking everything" : "Regular mode";
-  blockAllLabel.dataset.active = String(status.blockAll);
   toggleBlockAll.textContent = status.blockAll ? "Back to regular mode" : "Block everything";
   toggleBlockAll.dataset.active = String(status.blockAll);
   if (populateForm) {

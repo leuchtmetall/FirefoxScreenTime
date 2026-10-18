@@ -45,9 +45,8 @@ h1 { margin: 0; font: 400 25px/1 Georgia, serif; }
 .tab-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 3px 22px; min-height: 30px; }
 .tab-state { margin: 0; color: #54625b; font-size: 12px; }
 .tab-state[data-tracked="true"] { color: #a54125; font-weight: 750; }
-.block-all-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: -10px 3px 22px; }
-.block-all-state { margin: 0; color: #54625b; font-size: 12px; }
-.block-all-state[data-active="true"] { color: #a54125; font-weight: 750; }
+.block-all { margin-left: auto; padding: 6px 12px; font-size: 11px; white-space: nowrap; }
+.remaining[data-block-all="true"] { color: #fff8ed; }
 button[data-active="true"] { background: #17231f; }
 button[data-active="true"]:hover, button[data-active="true"]:focus-visible { background: #26362f; }
 
