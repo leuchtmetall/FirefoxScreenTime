@@ -7,6 +7,8 @@ export const TAB_EXCLUDED_KEY = "screenTimeExcluded";
 export interface Settings {
   trackedHostnames: string[];
   dailyLimitMinutes: number;
+  /** Show remaining minutes as a badge on the toolbar icon. */
+  showBadge: boolean;
 }
 
 export interface DailyUsage {
@@ -60,4 +62,5 @@ export type OverlayMode = "limit" | "block-all";
 export const DEFAULT_SETTINGS: Settings = {
   trackedHostnames: [],
   dailyLimitMinutes: 30,
+  showBadge: false,
 };

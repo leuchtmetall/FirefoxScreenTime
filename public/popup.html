@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Screen Time</title>
-    <link rel="stylesheet" href="popup.css">
+    <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
     <main>
@@ -14,7 +14,9 @@
           <p class="eyebrow">Daily attention</p>
           <h1>Screen Time</h1>
         </div>
-        <button id="toggle-block-all" class="block-all" type="button">Block everything</button>
+        <button id="toggle-block-all" class="block-all" type="button">
+          Block everything
+        </button>
       </header>
 
       <section class="meter" aria-label="Today's usage">
@@ -26,19 +28,43 @@
       </section>
       <div class="tab-row">
         <p id="state-label" class="tab-state">Checking this tab...</p>
-        <button id="toggle-tab" class="secondary" type="button" hidden>Stop tracking this tab</button>
+        <button id="toggle-tab" class="secondary" type="button" hidden>
+          Stop tracking this tab
+        </button>
       </div>
 
       <form id="settings-form">
         <label for="daily-limit">Daily allowance</label>
         <div class="limit-row">
-          <input id="daily-limit" name="daily-limit" type="number" min="1" max="1440" step="1" required>
+          <input
+            id="daily-limit"
+            name="daily-limit"
+            type="number"
+            min="1"
+            max="1440"
+            step="1"
+            required
+          />
           <span>minutes</span>
         </div>
 
+        <label class="checkbox" for="show-badge">
+          <input id="show-badge" name="show-badge" type="checkbox" />
+          Show remaining minutes on toolbar icon
+        </label>
+
         <label for="hostnames">Tracked sites</label>
-        <textarea id="hostnames" name="hostnames" rows="5" spellcheck="false" placeholder="example.com&#10;news.example.org"></textarea>
-        <p class="hint">One hostname per line. Subdomains are included. Child tabs opened from tracked tabs inherit tracking.</p>
+        <textarea
+          id="hostnames"
+          name="hostnames"
+          rows="5"
+          spellcheck="false"
+          placeholder="example.com&#10;news.example.org"
+        ></textarea>
+        <p class="hint">
+          One hostname per line. Subdomains are included. Tabs opened from
+          tracked tabs inherit tracking.
+        </p>
 
         <div class="form-footer">
           <span id="feedback" role="status"></span>

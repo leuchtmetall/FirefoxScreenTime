@@ -5,6 +5,7 @@ import {
   isDailyBlocked,
   rollUsageToNow,
 } from "./shared/daily.ts";
+import { badgeText } from "./shared/badge.ts";
 import { overlayMode, setTabExcluded, transitionTabState } from "./shared/tracking.ts";
 import {
   DEFAULT_SETTINGS,
@@ -98,6 +99,7 @@ function validateSettings(candidate: Settings): Settings {
   return {
     dailyLimitMinutes,
     trackedHostnames: normalizeHostnames(candidate.trackedHostnames),
+    showBadge: candidate.showBadge === true,
   };
 }
 
@@ -164,6 +166,12 @@ async function refreshTab(tabId: number): Promise<void> {
       path: tracked || blockAll ? "icons/active.svg" : "icons/inactive.svg",
     }).catch(() => undefined),
     browser.action.setTitle({ tabId, title }).catch(() => undefined),
+    browser.action.setBadgeText({ tabId, text: badgeText(status) }).catch(() => undefined),
+    browser.action.setBadgeBackgroundColor({
+      tabId,
+      color: tracked ? (status.blocked ? "#17231f" : "#d85832") : "#6b7570",
+    }).catch(() => undefined),
+    browser.action.setBadgeTextColor({ tabId, color: "#ffffff" }).catch(() => undefined),
     browser.tabs.sendMessage(tabId, update).catch(() => undefined),
   ]);
 }
