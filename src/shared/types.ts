@@ -46,6 +46,8 @@ export type ExtensionRequest =
   | { type: "set-block-all"; enabled: boolean; tabId?: number }
   | { type: "extend"; durationMinutes: 5 | 15 | "rest-of-day" };
 
+export type ExtendDuration = Extract<ExtensionRequest, { type: "extend" }>["durationMinutes"];
+
 export type ExtensionResponse =
   | { ok: true; status: StatusSnapshot }
   | { ok: false; error: string };

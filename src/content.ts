@@ -2,6 +2,7 @@ import * as styles from "./overlay-styles.ts";
 import { overlayMode } from "./shared/tracking.ts";
 import type {
   ContentUpdate,
+  ExtendDuration,
   ExtensionRequest,
   ExtensionResponse,
   OverlayMode,
@@ -19,8 +20,6 @@ function formatDuration(milliseconds: number): string {
   const minutes = totalMinutes % 60;
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 }
-
-type ExtendDuration = Extract<ExtensionRequest, { type: "extend" }>["durationMinutes"];
 
 interface OverlayView {
   root: HTMLElement;
