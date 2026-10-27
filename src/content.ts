@@ -1,5 +1,4 @@
 import * as styles from "./overlay-styles.ts";
-import { applyButtonStyle, applyStyle, type Style } from "./overlay-styles.ts";
 import { overlayMode } from "./shared/tracking.ts";
 import type {
   ContentUpdate,
@@ -31,11 +30,11 @@ interface OverlayView {
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  style: Style,
+  style: styles.Style,
   ...children: (Node | string)[]
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
-  applyStyle(element, style);
+  styles.applyStyle(element, style);
   element.append(...children);
   return element;
 }
@@ -77,7 +76,7 @@ function buildTimeUpView(status: StatusSnapshot): OverlayView {
   ] as const).map(([label, durationMinutes, buttonStyles]) => {
     const button = document.createElement("button");
     button.textContent = label;
-    applyButtonStyle(button, buttonStyles);
+    styles.applyButtonStyle(button, buttonStyles);
     return { button, durationMinutes };
   });
   const note = createElement("div", styles.note, "Your allowance resets at local midnight.");
@@ -130,7 +129,7 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
   overlayHost = undefined;
   const host = document.createElement("div");
   host.setAttribute("data-firefox-screen-time", "blocked");
-  applyStyle(host, styles.host);
+  styles.applyStyle(host, styles.host);
   const shadow = host.attachShadow({ mode: "closed" });
   const view = mode === "block-all" ? buildBlockAllView() : buildTimeUpView(status);
   shadow.append(view.root);
