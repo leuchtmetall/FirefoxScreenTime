@@ -11,7 +11,6 @@ import type {
 
 let overlayHost: HTMLDivElement | undefined;
 let overlayObserver: MutationObserver | undefined;
-let blockedStatus: StatusSnapshot | undefined;
 let shownMode: OverlayMode | undefined;
 
 function formatDuration(milliseconds: number): string {
@@ -104,7 +103,6 @@ function preventInteraction(event: Event): void {
 }
 
 function removeOverlay(): void {
-  blockedStatus = undefined;
   shownMode = undefined;
   overlayObserver?.disconnect();
   overlayObserver = undefined;
@@ -116,16 +114,9 @@ function removeOverlay(): void {
 }
 
 function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
-  if (overlayHost?.isConnected && shownMode === mode) {
-    blockedStatus = status;
-    return;
-  }
-  if (overlayHost?.isConnected) removeOverlay();
-  blockedStatus = status;
+  if (overlayHost?.isConnected && shownMode === mode) return;
+  removeOverlay();
   shownMode = mode;
-  overlayObserver?.disconnect();
-  overlayObserver = undefined;
-  overlayHost = undefined;
   const host = document.createElement("div");
   host.setAttribute("data-firefox-screen-time", "blocked");
   styles.applyStyle(host, styles.host);
@@ -133,10 +124,12 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
   const view = mode === "block-all" ? buildBlockAllView() : buildTimeUpView(status);
   shadow.append(view.root);
   overlayHost = host;
-  (document.documentElement ?? document).append(host);
+  const attach = (): void => (document.documentElement ?? document).append(host);
+  attach();
 
+  // Put the same overlay back if the page removes it.
   overlayObserver = new MutationObserver(() => {
-    if (blockedStatus && shownMode && !overlayHost?.isConnected) showOverlay(blockedStatus, shownMode);
+    if (!host.isConnected) attach();
   });
   overlayObserver.observe(document.documentElement, { childList: true });
 

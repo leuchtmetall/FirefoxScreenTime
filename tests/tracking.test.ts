@@ -9,38 +9,36 @@ describe("tab tracking transitions", () => {
       inherited: false,
       excluded: false,
       tracked: true,
-      url: "https://www.example.com/page",
     });
   });
 
   test("retains tracking through normal navigation in an inherited tab", () => {
-    const previous = { inherited: true, excluded: false, tracked: true, url: "https://elsewhere.test" };
+    const previous = { inherited: true, excluded: false, tracked: true };
     expect(transitionTabState(previous, "https://another.test", configured, false).tracked).toBe(true);
   });
 
   test("clears inheritance when a non-tracked URL is typed", () => {
-    const previous = { inherited: true, excluded: false, tracked: true, url: "https://elsewhere.test" };
+    const previous = { inherited: true, excluded: false, tracked: true };
     expect(transitionTabState(previous, "https://another.test", configured, true)).toEqual({
       inherited: false,
       excluded: false,
       tracked: false,
-      url: "https://another.test",
     });
   });
 
   test("keeps an inherited tab tracked when a configured URL is typed", () => {
-    const previous = { inherited: true, excluded: false, tracked: true, url: "https://elsewhere.test" };
+    const previous = { inherited: true, excluded: false, tracked: true };
     expect(transitionTabState(previous, "https://example.com", configured, true).tracked).toBe(true);
   });
 
   test("stops direct tracking after normal navigation away", () => {
-    const previous = { inherited: false, excluded: false, tracked: true, url: "https://example.com" };
+    const previous = { inherited: false, excluded: false, tracked: true };
     expect(transitionTabState(previous, "https://another.test", configured, false).tracked).toBe(false);
   });
 
   test("excluded tabs stay untracked across navigations to configured URLs", () => {
     const excluded = setTabExcluded(
-      { inherited: true, excluded: false, tracked: true, url: "https://example.com" },
+      { inherited: true, excluded: false, tracked: true },
       "https://example.com",
       configured,
       true,
@@ -50,12 +48,11 @@ describe("tab tracking transitions", () => {
       inherited: true,
       excluded: true,
       tracked: false,
-      url: "https://example.com/other",
     });
   });
 
   test("re-including a tab restores direct and inherited tracking", () => {
-    const excluded = { inherited: true, excluded: true, tracked: false, url: "https://elsewhere.test" };
+    const excluded = { inherited: true, excluded: true, tracked: false };
     expect(setTabExcluded(excluded, "https://elsewhere.test", configured, false).tracked).toBe(true);
   });
 });

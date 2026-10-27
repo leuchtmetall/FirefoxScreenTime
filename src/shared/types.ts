@@ -23,7 +23,6 @@ export interface TabTrackingState {
   /** Manually removed from tracking by the user; persists across navigations for the tab's lifetime. */
   excluded: boolean;
   tracked: boolean;
-  url?: string;
 }
 
 export interface StatusSnapshot {

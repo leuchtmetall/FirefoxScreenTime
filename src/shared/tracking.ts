@@ -10,7 +10,7 @@ export function transitionTabState(
   const direct = isTrackedUrl(url, hostnames);
   const inherited = typedNavigation && !direct ? false : (previous?.inherited ?? false);
   const excluded = previous?.excluded ?? false;
-  return { inherited, excluded, tracked: !excluded && (direct || inherited), url };
+  return { inherited, excluded, tracked: !excluded && (direct || inherited) };
 }
 
 /** Block-everything mode covers every tab; otherwise only tracked tabs past the daily limit. */
