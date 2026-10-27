@@ -39,6 +39,10 @@ export function effectiveLimitMs(usage: DailyUsage, dailyLimitMinutes: number): 
   return dailyLimitMinutes * 60_000 + usage.extraMs;
 }
 
+export function remainingMs(status: { effectiveLimitMs: number; elapsedMs: number }): number {
+  return Math.max(0, status.effectiveLimitMs - status.elapsedMs);
+}
+
 export function isDailyBlocked(usage: DailyUsage, dailyLimitMinutes: number): boolean {
   return !usage.blockingDisabled && usage.elapsedMs >= effectiveLimitMs(usage, dailyLimitMinutes);
 }

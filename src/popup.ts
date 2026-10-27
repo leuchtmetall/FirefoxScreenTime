@@ -1,3 +1,4 @@
+import { remainingMs } from "./shared/daily.ts";
 import type {
   ExtensionRequest,
   ExtensionResponse,
@@ -42,7 +43,7 @@ function render(status: StatusSnapshot, populateForm = false): void {
     ? "Blocking everything · paused"
     : status.usage.blockingDisabled
     ? "Open for today"
-    : `${formatDuration(Math.max(0, status.effectiveLimitMs - status.elapsedMs))} left`;
+    : `${formatDuration(remainingMs(status))} left`;
   stateLabel.textContent = status.currentTabTracked
     ? "This tab is tracked"
     : status.currentTabExcluded

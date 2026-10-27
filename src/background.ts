@@ -3,6 +3,7 @@ import {
   effectiveLimitMs,
   freshDailyUsage,
   isDailyBlocked,
+  remainingMs,
   rollUsageToNow,
 } from "./shared/daily.ts";
 import { badgeText } from "./shared/badge.ts";
