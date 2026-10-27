@@ -19,9 +19,9 @@ describe("badgeText", () => {
   });
 
   test("shows remaining minutes rounded up", () => {
-    expect(badgeText(status())).toBe("30");
-    expect(badgeText(status({ elapsedMs: 60_001 }))).toBe("29");
-    expect(badgeText(status({ elapsedMs: 40 * 60_000 }))).toBe("0");
+    expect(badgeText(status())).toBe("30m");
+    expect(badgeText(status({ elapsedMs: 60_001 }))).toBe("29m");
+    expect(badgeText(status({ elapsedMs: 40 * 60_000 }))).toBe("0m");
   });
 
   test("handles open-for-today and large values", () => {
