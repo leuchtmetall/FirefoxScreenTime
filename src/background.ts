@@ -28,7 +28,7 @@ import {
 import { normalizeHostnames } from "./shared/urls.ts";
 
 const CHECKPOINT_ALARM = "screen-time-checkpoint";
-const REQUEST_TYPES = new Set<unknown>(["get-status", "save-settings", "extend", "set-tab-excluded", "set-block-all"]);
+const REQUEST_TYPES = new Set<unknown>(["get-status", "save-settings", "extend", "set-tab-excluded", "set-block-all", "reset-today"]);
 const tabStates = new Map<number, TabTrackingState>();
 
 /** What each tab last displayed, so refreshes only call the browser APIs for values that changed. */
@@ -297,6 +297,12 @@ async function extend(durationMinutes: ExtendDuration): Promise<void> {
   await saveUsage();
 }
 
+/** Starts today over: clears used time and any extensions granted today. */
+async function resetToday(): Promise<void> {
+  usage = freshDailyUsage(Date.now());
+  await saveUsage();
+}
+
 async function applyRequest(request: Exclude<ExtensionRequest, { type: "get-status" }>): Promise<void> {
   switch (request.type) {
     case "save-settings":
@@ -307,6 +313,8 @@ async function applyRequest(request: Exclude<ExtensionRequest, { type: "get-stat
       return setTabExclusion(request.tabId, request.excluded);
     case "extend":
       return extend(request.durationMinutes);
+    case "reset-today":
+      return resetToday();
   }
 }
 

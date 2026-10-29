@@ -79,6 +79,19 @@ h1 {
     serif;
   font-variant-numeric: tabular-nums;
 }
+button.reset {
+  margin-left: auto;
+}
+button.reset[data-armed="true"] {
+  border-color: #d85832;
+  background: #d85832;
+  color: #fff;
+}
+button.reset[data-armed="true"]:hover,
+button.reset[data-armed="true"]:focus-visible {
+  border-color: #bd4323;
+  background: #bd4323;
+}
 .remaining {
   color: #f09a72;
   font-size: 12px;

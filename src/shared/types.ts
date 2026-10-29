@@ -43,7 +43,8 @@ export type ExtensionRequest =
   | { type: "set-tab-excluded"; tabId: number; excluded: boolean }
   | { type: "save-settings"; settings: Settings }
   | { type: "set-block-all"; enabled: boolean; tabId?: number }
-  | { type: "extend"; durationMinutes: 5 | 15 | "rest-of-day" };
+  | { type: "extend"; durationMinutes: 5 | 15 | "rest-of-day" }
+  | { type: "reset-today"; tabId?: number };
 
 export type ExtendDuration = Extract<ExtensionRequest, { type: "extend" }>["durationMinutes"];
 

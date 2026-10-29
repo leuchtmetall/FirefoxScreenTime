@@ -16,6 +16,7 @@ const form = requiredElement<HTMLFormElement>("settings-form");
 const feedback = requiredElement("feedback");
 const toggleTab = requiredElement<HTMLButtonElement>("toggle-tab");
 const toggleBlockAll = requiredElement<HTMLButtonElement>("toggle-block-all");
+const resetToday = requiredElement<HTMLButtonElement>("reset-today");
 let blockAll = false;
 let currentTabId: number | undefined;
 let currentTabExcluded = false;
@@ -110,6 +111,38 @@ toggleBlockAll.addEventListener("click", async () => {
     else feedback.textContent = response.error;
   } finally {
     toggleBlockAll.disabled = false;
+  }
+});
+
+// The first click arms the button; a second click within a few seconds resets today's usage.
+let resetConfirmTimer: number | undefined;
+
+function disarmReset(): void {
+  window.clearTimeout(resetConfirmTimer);
+  resetConfirmTimer = undefined;
+  resetToday.textContent = "Reset today";
+  delete resetToday.dataset.armed;
+}
+
+resetToday.addEventListener("click", async () => {
+  if (resetConfirmTimer === undefined) {
+    resetToday.textContent = "Click again to reset";
+    resetToday.dataset.armed = "true";
+    resetConfirmTimer = window.setTimeout(disarmReset, 4_000);
+    return;
+  }
+  disarmReset();
+  resetToday.disabled = true;
+  try {
+    const response = await request({ type: "reset-today", tabId: currentTabId });
+    if (response.ok) {
+      render(response.status);
+      feedback.textContent = "Today's timer was reset";
+    } else {
+      feedback.textContent = response.error;
+    }
+  } finally {
+    resetToday.disabled = false;
   }
 });
 
