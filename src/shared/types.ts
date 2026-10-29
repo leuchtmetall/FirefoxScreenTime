@@ -63,5 +63,5 @@ export type OverlayMode = "limit" | "block-all";
 export const DEFAULT_SETTINGS: Settings = {
   trackedHostnames: [],
   dailyLimitMinutes: 30,
-  showBadge: false,
+  showBadge: true,
 };

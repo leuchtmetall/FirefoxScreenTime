@@ -124,7 +124,7 @@ function validateSettings(candidate: unknown): Settings {
   return {
     dailyLimitMinutes: limit,
     trackedHostnames: normalizeHostnames(trackedHostnames),
-    showBadge: showBadge === true,
+    showBadge: typeof showBadge === "boolean" ? showBadge : DEFAULT_SETTINGS.showBadge,
   };
 }
 
