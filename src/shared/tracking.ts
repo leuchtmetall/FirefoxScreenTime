@@ -29,5 +29,10 @@ export function setTabExcluded(
   hostnames: string[],
   excluded: boolean,
 ): TabTrackingState {
-  return transitionTabState({ inherited: previous?.inherited ?? false, tracked: false, excluded }, url, hostnames, false);
+  return transitionTabState(
+    { inherited: previous?.inherited ?? false, tracked: false, excluded },
+    url,
+    hostnames,
+    false,
+  );
 }

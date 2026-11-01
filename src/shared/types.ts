@@ -48,9 +48,7 @@ export type ExtensionRequest =
 
 export type ExtendDuration = Extract<ExtensionRequest, { type: "extend" }>["durationMinutes"];
 
-export type ExtensionResponse =
-  | { ok: true; status: StatusSnapshot }
-  | { ok: false; error: string };
+export type ExtensionResponse = { ok: true; status: StatusSnapshot } | { ok: false; error: string };
 
 export type ContentUpdate = {
   type: "tracking-update";

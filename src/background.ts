@@ -28,7 +28,14 @@ import {
 import { normalizeHostnames } from "./shared/urls.ts";
 
 const CHECKPOINT_ALARM = "screen-time-checkpoint";
-const REQUEST_TYPES = new Set<unknown>(["get-status", "save-settings", "extend", "set-tab-excluded", "set-block-all", "reset-today"]);
+const REQUEST_TYPES = new Set<unknown>([
+  "get-status",
+  "save-settings",
+  "extend",
+  "set-tab-excluded",
+  "set-block-all",
+  "reset-today",
+]);
 const tabStates = new Map<number, TabTrackingState>();
 
 /** What each tab last displayed, so refreshes only call the browser APIs for values that changed. */
@@ -72,36 +79,45 @@ function queueTask(task: () => Promise<void>): void {
 
 async function initialize(): Promise<void> {
   const now = Date.now();
-  const stored = await browser.storage.local.get([STORAGE_SETTINGS_KEY, STORAGE_USAGE_KEY, STORAGE_BLOCK_ALL_KEY]);
+  const stored = await browser.storage.local.get([
+    STORAGE_SETTINGS_KEY,
+    STORAGE_USAGE_KEY,
+    STORAGE_BLOCK_ALL_KEY,
+  ]);
   blockAll = stored[STORAGE_BLOCK_ALL_KEY] === true;
   const storedUsage = stored[STORAGE_USAGE_KEY] as DailyUsage | undefined;
 
-  if (stored[STORAGE_SETTINGS_KEY] !== undefined) settings = validateSettings(stored[STORAGE_SETTINGS_KEY]);
+  if (stored[STORAGE_SETTINGS_KEY] !== undefined)
+    settings = validateSettings(stored[STORAGE_SETTINGS_KEY]);
   usage = rollUsageToNow(storedUsage ?? freshDailyUsage(now), now);
 
   const [tabs, lastFocused] = await Promise.all([
     browser.tabs.query({}),
     browser.windows.getLastFocused(),
   ]);
-  focusedWindowId = lastFocused.focused ? (lastFocused.id ?? browser.windows.WINDOW_ID_NONE) : browser.windows.WINDOW_ID_NONE;
+  focusedWindowId = lastFocused.focused
+    ? (lastFocused.id ?? browser.windows.WINDOW_ID_NONE)
+    : browser.windows.WINDOW_ID_NONE;
 
-  await Promise.all(tabs.map(async (tab) => {
-    if (tab.id === undefined) return;
-    const [inherited, excluded] = await Promise.all([
-      browser.sessions.getTabValue(tab.id, TAB_INHERITED_KEY).catch(() => false),
-      browser.sessions.getTabValue(tab.id, TAB_EXCLUDED_KEY).catch(() => false),
-    ]);
-    tabStates.set(
-      tab.id,
-      transitionTabState(
-        { inherited: inherited === true, excluded: excluded === true, tracked: false },
-        tab.url,
-        settings.trackedHostnames,
-        false,
-      ),
-    );
-    if (tab.active && tab.windowId === focusedWindowId) activeTabId = tab.id;
-  }));
+  await Promise.all(
+    tabs.map(async (tab) => {
+      if (tab.id === undefined) return;
+      const [inherited, excluded] = await Promise.all([
+        browser.sessions.getTabValue(tab.id, TAB_INHERITED_KEY).catch(() => false),
+        browser.sessions.getTabValue(tab.id, TAB_EXCLUDED_KEY).catch(() => false),
+      ]);
+      tabStates.set(
+        tab.id,
+        transitionTabState(
+          { inherited: inherited === true, excluded: excluded === true, tracked: false },
+          tab.url,
+          settings.trackedHostnames,
+          false,
+        ),
+      );
+      if (tab.active && tab.windowId === focusedWindowId) activeTabId = tab.id;
+    }),
+  );
 
   await browser.storage.local.set({
     [STORAGE_SETTINGS_KEY]: settings,
@@ -115,7 +131,9 @@ async function initialize(): Promise<void> {
 const ready = initialize();
 
 function validateSettings(candidate: unknown): Settings {
-  const { dailyLimitMinutes, trackedHostnames, showBadge } = (candidate ?? {}) as Partial<Record<keyof Settings, unknown>>;
+  const { dailyLimitMinutes, trackedHostnames, showBadge } = (candidate ?? {}) as Partial<
+    Record<keyof Settings, unknown>
+  >;
   const limit = Number(dailyLimitMinutes);
   if (!Number.isInteger(limit) || limit < 1 || limit > 1_440) {
     throw new Error("Daily limit must be a whole number from 1 to 1440 minutes.");
@@ -131,7 +149,10 @@ function validateSettings(candidate: unknown): Settings {
 function canAccumulate(): boolean {
   if (blockAll) return false;
   if (activeTabId === undefined || focusedWindowId === browser.windows.WINDOW_ID_NONE) return false;
-  return tabStates.get(activeTabId)?.tracked === true && !isDailyBlocked(usage, settings.dailyLimitMinutes);
+  return (
+    tabStates.get(activeTabId)?.tracked === true &&
+    !isDailyBlocked(usage, settings.dailyLimitMinutes)
+  );
 }
 
 function beginActiveSession(now: number): void {
@@ -144,7 +165,10 @@ function accruedUsage(now: number): DailyUsage {
   if (activeStartedAt === undefined) return current;
   const accrued = addActiveInterval(current, activeStartedAt, now);
   if (accrued.blockingDisabled) return accrued;
-  return { ...accrued, elapsedMs: Math.min(accrued.elapsedMs, effectiveLimitMs(accrued, settings.dailyLimitMinutes)) };
+  return {
+    ...accrued,
+    elapsedMs: Math.min(accrued.elapsedMs, effectiveLimitMs(accrued, settings.dailyLimitMinutes)),
+  };
 }
 
 async function saveUsage(): Promise<void> {
@@ -218,8 +242,10 @@ async function refreshTab(tabId: number): Promise<void> {
   presented.set(tabId, next);
 
   const updates: Promise<unknown>[] = [refreshBadgeText(status)];
-  if (next.icon !== previous?.icon) updates.push(browser.action.setIcon({ tabId, path: next.icon }));
-  if (next.title !== previous?.title) updates.push(browser.action.setTitle({ tabId, title: next.title }));
+  if (next.icon !== previous?.icon)
+    updates.push(browser.action.setIcon({ tabId, path: next.icon }));
+  if (next.title !== previous?.title)
+    updates.push(browser.action.setTitle({ tabId, title: next.title }));
   if (next.badgeColor !== previous?.badgeColor) {
     updates.push(browser.action.setBadgeBackgroundColor({ tabId, color: next.badgeColor }));
   }
@@ -247,7 +273,11 @@ async function checkpoint(): Promise<void> {
   if (usage !== previous) await refreshAllTabs();
 }
 
-async function setTabState(tabId: number, url: string | undefined, typedNavigation: boolean): Promise<void> {
+async function setTabState(
+  tabId: number,
+  url: string | undefined,
+  typedNavigation: boolean,
+): Promise<void> {
   const previous = tabStates.get(tabId);
   const next = transitionTabState(previous, url, settings.trackedHostnames, typedNavigation);
   tabStates.set(tabId, next);
@@ -269,7 +299,9 @@ async function saveSettings(candidate: unknown): Promise<void> {
   settings = validateSettings(candidate);
   await browser.storage.local.set({ [STORAGE_SETTINGS_KEY]: settings });
   const tabs = await browser.tabs.query({});
-  await Promise.all(tabs.map((tab) => tab.id === undefined ? undefined : setTabState(tab.id, tab.url, false)));
+  await Promise.all(
+    tabs.map((tab) => (tab.id === undefined ? undefined : setTabState(tab.id, tab.url, false))),
+  );
 }
 
 async function setBlockAll(enabled: unknown): Promise<void> {
@@ -279,9 +311,13 @@ async function setBlockAll(enabled: unknown): Promise<void> {
 }
 
 async function setTabExclusion(tabId: unknown, excluded: unknown): Promise<void> {
-  if (typeof tabId !== "number" || typeof excluded !== "boolean") throw new Error("Invalid tab request.");
+  if (typeof tabId !== "number" || typeof excluded !== "boolean")
+    throw new Error("Invalid tab request.");
   const tab = await browser.tabs.get(tabId);
-  tabStates.set(tabId, setTabExcluded(tabStates.get(tabId), tab.url, settings.trackedHostnames, excluded));
+  tabStates.set(
+    tabId,
+    setTabExcluded(tabStates.get(tabId), tab.url, settings.trackedHostnames, excluded),
+  );
   await browser.sessions.setTabValue(tabId, TAB_EXCLUDED_KEY, excluded).catch(ignore);
 }
 
@@ -303,7 +339,9 @@ async function resetToday(): Promise<void> {
   await saveUsage();
 }
 
-async function applyRequest(request: Exclude<ExtensionRequest, { type: "get-status" }>): Promise<void> {
+async function applyRequest(
+  request: Exclude<ExtensionRequest, { type: "get-status" }>,
+): Promise<void> {
   switch (request.type) {
     case "save-settings":
       return saveSettings(request.settings);
@@ -319,7 +357,11 @@ async function applyRequest(request: Exclude<ExtensionRequest, { type: "get-stat
 }
 
 function isExtensionRequest(message: unknown): message is ExtensionRequest {
-  return typeof message === "object" && message !== null && REQUEST_TYPES.has((message as { type?: unknown }).type);
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    REQUEST_TYPES.has((message as { type?: unknown }).type)
+  );
 }
 
 browser.alarms.create(CHECKPOINT_ALARM, { periodInMinutes: 0.25 });
@@ -330,7 +372,8 @@ browser.alarms.onAlarm.addListener((alarm) => {
 browser.tabs.onCreated.addListener((tab) => {
   queueTask(async () => {
     if (tab.id === undefined) return;
-    const openerTracked = tab.openerTabId !== undefined && tabStates.get(tab.openerTabId)?.tracked === true;
+    const openerTracked =
+      tab.openerTabId !== undefined && tabStates.get(tab.openerTabId)?.tracked === true;
     const state = transitionTabState(
       { inherited: openerTracked, excluded: false, tracked: openerTracked },
       tab.url,
@@ -338,17 +381,20 @@ browser.tabs.onCreated.addListener((tab) => {
       false,
     );
     tabStates.set(tab.id, state);
-    if (state.inherited) await browser.sessions.setTabValue(tab.id, TAB_INHERITED_KEY, true).catch(ignore);
+    if (state.inherited)
+      await browser.sessions.setTabValue(tab.id, TAB_INHERITED_KEY, true).catch(ignore);
     await refreshTab(tab.id);
   });
 });
 
 browser.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId !== 0) return;
-  const typedNavigation = details.transitionType === "typed"
-    || details.transitionQualifiers.includes("from_address_bar");
+  const typedNavigation =
+    details.transitionType === "typed" || details.transitionQualifiers.includes("from_address_bar");
   queueTask(async () => {
-    await accounted(details.timeStamp, () => setTabState(details.tabId, details.url, typedNavigation));
+    await accounted(details.timeStamp, () =>
+      setTabState(details.tabId, details.url, typedNavigation),
+    );
     // Firefox resets per-tab toolbar values on navigation, and the new document has no overlay yet.
     await representTab(details.tabId);
   });
@@ -377,11 +423,13 @@ browser.windows.onFocusChanged.addListener((windowId) => {
 
 browser.tabs.onRemoved.addListener((tabId) => {
   const eventTime = Date.now();
-  queueTask(() => accounted(eventTime, () => {
-    tabStates.delete(tabId);
-    presented.delete(tabId);
-    if (activeTabId === tabId) activeTabId = undefined;
-  }));
+  queueTask(() =>
+    accounted(eventTime, () => {
+      tabStates.delete(tabId);
+      presented.delete(tabId);
+      if (activeTabId === tabId) activeTabId = undefined;
+    }),
+  );
 });
 
 browser.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
@@ -392,32 +440,40 @@ browser.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
       tabStates.delete(removedTabId);
       presented.delete(removedTabId);
       const tab = await browser.tabs.get(addedTabId);
-      tabStates.set(addedTabId, transitionTabState(previous, tab.url, settings.trackedHostnames, false));
+      tabStates.set(
+        addedTabId,
+        transitionTabState(previous, tab.url, settings.trackedHostnames, false),
+      );
       if (activeTabId === removedTabId) activeTabId = addedTabId;
-      if (previous?.inherited) await browser.sessions.setTabValue(addedTabId, TAB_INHERITED_KEY, true).catch(ignore);
-      if (previous?.excluded) await browser.sessions.setTabValue(addedTabId, TAB_EXCLUDED_KEY, true).catch(ignore);
+      if (previous?.inherited)
+        await browser.sessions.setTabValue(addedTabId, TAB_INHERITED_KEY, true).catch(ignore);
+      if (previous?.excluded)
+        await browser.sessions.setTabValue(addedTabId, TAB_EXCLUDED_KEY, true).catch(ignore);
     });
     await representTab(addedTabId);
   });
 });
 
-browser.runtime.onMessage.addListener((message: unknown, sender): Promise<ExtensionResponse> | undefined => {
-  if (!isExtensionRequest(message)) return undefined;
+browser.runtime.onMessage.addListener(
+  (message: unknown, sender): Promise<ExtensionResponse> | undefined => {
+    if (!isExtensionRequest(message)) return undefined;
 
-  return enqueue(async () => {
-    await ready;
-    try {
-      if (message.type === "get-status") {
-        // A content script asks once per document load: a good moment to reapply its tab's toolbar values.
-        if (sender.tab?.id !== undefined) await representTab(sender.tab.id);
-      } else {
-        await accounted(Date.now(), () => applyRequest(message));
-        await refreshAllTabs();
+    return enqueue(async () => {
+      await ready;
+      try {
+        if (message.type === "get-status") {
+          // A content script asks once per document load: a good moment to reapply its tab's toolbar values.
+          if (sender.tab?.id !== undefined) await representTab(sender.tab.id);
+        } else {
+          await accounted(Date.now(), () => applyRequest(message));
+          await refreshAllTabs();
+        }
+        const statusTabId =
+          ("tabId" in message ? message.tabId : undefined) ?? sender.tab?.id ?? activeTabId;
+        return { ok: true, status: snapshot(statusTabId) };
+      } catch (error) {
+        return { ok: false, error: error instanceof Error ? error.message : "Unknown error" };
       }
-      const statusTabId = ("tabId" in message ? message.tabId : undefined) ?? sender.tab?.id ?? activeTabId;
-      return { ok: true, status: snapshot(statusTabId) };
-    } catch (error) {
-      return { ok: false, error: error instanceof Error ? error.message : "Unknown error" };
-    }
-  });
-});
+    });
+  },
+);

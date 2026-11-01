@@ -43,7 +43,13 @@ function createDialog(eyebrow: string, title: string, ...content: Node[]): HTMLE
   const veil = createElement(
     "div",
     styles.veil,
-    createElement("main", styles.card, createElement("div", styles.eyebrow, eyebrow), heading, ...content),
+    createElement(
+      "main",
+      styles.card,
+      createElement("div", styles.eyebrow, eyebrow),
+      heading,
+      ...content,
+    ),
   );
   veil.setAttribute("role", "dialog");
   veil.setAttribute("aria-modal", "true");
@@ -52,7 +58,11 @@ function createDialog(eyebrow: string, title: string, ...content: Node[]): HTMLE
 }
 
 function buildBlockAllView(): OverlayView {
-  const note = createElement("div", styles.note, "Turn this mode off from the Screen Time toolbar button.");
+  const note = createElement(
+    "div",
+    styles.note,
+    "Turn this mode off from the Screen Time toolbar button.",
+  );
   const root = createDialog(
     "Block everything",
     "Everything is paused.",
@@ -67,11 +77,13 @@ function buildBlockAllView(): OverlayView {
 }
 
 function buildTimeUpView(status: StatusSnapshot): OverlayView {
-  const extensions = ([
-    ["Add 5 minutes", 5, styles.button],
-    ["Add 15 minutes", 15, styles.button],
-    ["Allow for today", "rest-of-day", styles.primaryButton],
-  ] as const).map(([label, durationMinutes, buttonStyles]) => {
+  const extensions = (
+    [
+      ["Add 5 minutes", 5, styles.button],
+      ["Add 15 minutes", 15, styles.button],
+      ["Allow for today", "rest-of-day", styles.primaryButton],
+    ] as const
+  ).map(([label, durationMinutes, buttonStyles]) => {
     const button = document.createElement("button");
     button.textContent = label;
     styles.applyButtonStyle(button, buttonStyles);
@@ -144,10 +156,10 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
     button.addEventListener("click", async () => {
       setButtonsDisabled(true);
       try {
-        const response = await browser.runtime.sendMessage({
+        const response = (await browser.runtime.sendMessage({
           type: "extend",
           durationMinutes,
-        } satisfies ExtensionRequest) as ExtensionResponse;
+        } satisfies ExtensionRequest)) as ExtensionResponse;
         if (response.ok && !response.status.blocked && !response.status.blockAll) removeOverlay();
         else if (!response.ok) view.note.textContent = response.error;
       } catch {
@@ -182,9 +194,11 @@ browser.runtime.onMessage.addListener((message: unknown) => {
   }
 });
 
-void browser.runtime.sendMessage({ type: "get-status" } satisfies ExtensionRequest)
+void browser.runtime
+  .sendMessage({ type: "get-status" } satisfies ExtensionRequest)
   .then((response: ExtensionResponse) => {
-    if (response.ok) applyUpdate(overlayMode(response.status, response.status.currentTabTracked), response.status);
+    if (response.ok)
+      applyUpdate(overlayMode(response.status, response.status.currentTabTracked), response.status);
   })
   .catch(() => undefined)
   // Clean up after applying the current state so a still-blocked page never flashes uncovered.

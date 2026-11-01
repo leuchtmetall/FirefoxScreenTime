@@ -38,5 +38,7 @@ export function hostnameMatches(hostname: string, configured: string): boolean {
 
 export function isTrackedUrl(value: string | undefined, hostnames: string[]): boolean {
   const hostname = hostnameFromUrl(value);
-  return hostname !== undefined && hostnames.some((configured) => hostnameMatches(hostname, configured));
+  return (
+    hostname !== undefined && hostnames.some((configured) => hostnameMatches(hostname, configured))
+  );
 }

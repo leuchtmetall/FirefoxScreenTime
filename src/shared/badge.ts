@@ -3,7 +3,10 @@ import type { StatusSnapshot } from "./types.ts";
 
 /** Toolbar badge text: remaining whole minutes (rounded up), or a marker for special states. */
 export function badgeText(
-  status: Pick<StatusSnapshot, "settings" | "usage" | "elapsedMs" | "effectiveLimitMs" | "blockAll">,
+  status: Pick<
+    StatusSnapshot,
+    "settings" | "usage" | "elapsedMs" | "effectiveLimitMs" | "blockAll"
+  >,
 ): string {
   if (!status.settings.showBadge || status.blockAll) return "";
   if (status.usage.blockingDisabled) return "∞";

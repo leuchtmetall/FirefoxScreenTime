@@ -43,8 +43,8 @@ function render(status: StatusSnapshot, populateForm = false): void {
   remaining.textContent = status.blockAll
     ? "Blocking everything · paused"
     : status.usage.blockingDisabled
-    ? "Open for today"
-    : `${formatDuration(remainingMs(status))} left`;
+      ? "Open for today"
+      : `${formatDuration(remainingMs(status))} left`;
   stateLabel.textContent = status.currentTabTracked
     ? "This tab is tracked"
     : status.currentTabExcluded
@@ -52,8 +52,11 @@ function render(status: StatusSnapshot, populateForm = false): void {
       : "This tab is not tracked";
   stateLabel.dataset.tracked = String(status.currentTabTracked);
   currentTabExcluded = status.currentTabExcluded;
-  toggleTab.hidden = currentTabId === undefined || (!status.currentTabTracked && !status.currentTabExcluded);
-  toggleTab.textContent = status.currentTabExcluded ? "Track this tab again" : "Stop tracking this tab";
+  toggleTab.hidden =
+    currentTabId === undefined || (!status.currentTabTracked && !status.currentTabExcluded);
+  toggleTab.textContent = status.currentTabExcluded
+    ? "Track this tab again"
+    : "Stop tracking this tab";
   blockAll = status.blockAll;
   toggleBlockAll.textContent = status.blockAll ? "Back to regular mode" : "Block everything";
   toggleBlockAll.dataset.active = String(status.blockAll);
@@ -80,7 +83,10 @@ form.addEventListener("submit", async (event) => {
   const settings: Settings = {
     dailyLimitMinutes: Number(limitInput.value),
     showBadge: showBadgeInput.checked,
-    trackedHostnames: hostnamesInput.value.split(/[,\n]/).map((value) => value.trim()).filter(Boolean),
+    trackedHostnames: hostnamesInput.value
+      .split(/[,\n]/)
+      .map((value) => value.trim())
+      .filter(Boolean),
   };
   const response = await request({ type: "save-settings", settings });
   if (response.ok) {
@@ -95,7 +101,11 @@ toggleTab.addEventListener("click", async () => {
   if (currentTabId === undefined) return;
   toggleTab.disabled = true;
   try {
-    const response = await request({ type: "set-tab-excluded", tabId: currentTabId, excluded: !currentTabExcluded });
+    const response = await request({
+      type: "set-tab-excluded",
+      tabId: currentTabId,
+      excluded: !currentTabExcluded,
+    });
     if (response.ok) render(response.status);
     else feedback.textContent = response.error;
   } finally {
@@ -106,7 +116,11 @@ toggleTab.addEventListener("click", async () => {
 toggleBlockAll.addEventListener("click", async () => {
   toggleBlockAll.disabled = true;
   try {
-    const response = await request({ type: "set-block-all", enabled: !blockAll, tabId: currentTabId });
+    const response = await request({
+      type: "set-block-all",
+      enabled: !blockAll,
+      tabId: currentTabId,
+    });
     if (response.ok) render(response.status);
     else feedback.textContent = response.error;
   } finally {

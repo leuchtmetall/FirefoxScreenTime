@@ -5,7 +5,9 @@ const configured = ["example.com"];
 
 describe("tab tracking transitions", () => {
   test("tracks configured URLs directly", () => {
-    expect(transitionTabState(undefined, "https://www.example.com/page", configured, false)).toEqual({
+    expect(
+      transitionTabState(undefined, "https://www.example.com/page", configured, false),
+    ).toEqual({
       inherited: false,
       excluded: false,
       tracked: true,
@@ -14,7 +16,9 @@ describe("tab tracking transitions", () => {
 
   test("retains tracking through normal navigation in an inherited tab", () => {
     const previous = { inherited: true, excluded: false, tracked: true };
-    expect(transitionTabState(previous, "https://another.test", configured, false).tracked).toBe(true);
+    expect(transitionTabState(previous, "https://another.test", configured, false).tracked).toBe(
+      true,
+    );
   });
 
   test("clears inheritance when a non-tracked URL is typed", () => {
@@ -28,12 +32,16 @@ describe("tab tracking transitions", () => {
 
   test("keeps an inherited tab tracked when a configured URL is typed", () => {
     const previous = { inherited: true, excluded: false, tracked: true };
-    expect(transitionTabState(previous, "https://example.com", configured, true).tracked).toBe(true);
+    expect(transitionTabState(previous, "https://example.com", configured, true).tracked).toBe(
+      true,
+    );
   });
 
   test("stops direct tracking after normal navigation away", () => {
     const previous = { inherited: false, excluded: false, tracked: true };
-    expect(transitionTabState(previous, "https://another.test", configured, false).tracked).toBe(false);
+    expect(transitionTabState(previous, "https://another.test", configured, false).tracked).toBe(
+      false,
+    );
   });
 
   test("excluded tabs stay untracked across navigations to configured URLs", () => {
@@ -53,7 +61,9 @@ describe("tab tracking transitions", () => {
 
   test("re-including a tab restores direct and inherited tracking", () => {
     const excluded = { inherited: true, excluded: true, tracked: false };
-    expect(setTabExcluded(excluded, "https://elsewhere.test", configured, false).tracked).toBe(true);
+    expect(setTabExcluded(excluded, "https://elsewhere.test", configured, false).tracked).toBe(
+      true,
+    );
   });
 });
 

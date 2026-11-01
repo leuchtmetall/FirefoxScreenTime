@@ -2,10 +2,23 @@ import { describe, expect, test } from "bun:test";
 import { badgeText } from "../src/shared/badge.ts";
 import { DEFAULT_SETTINGS } from "../src/shared/types.ts";
 
-function status(overrides: { showBadge?: boolean; elapsedMs?: number; limitMs?: number; blockAll?: boolean; blockingDisabled?: boolean } = {}) {
+function status(
+  overrides: {
+    showBadge?: boolean;
+    elapsedMs?: number;
+    limitMs?: number;
+    blockAll?: boolean;
+    blockingDisabled?: boolean;
+  } = {},
+) {
   return {
     settings: { ...DEFAULT_SETTINGS, showBadge: overrides.showBadge ?? true },
-    usage: { dayKey: "2024-01-01", elapsedMs: 0, extraMs: 0, blockingDisabled: overrides.blockingDisabled ?? false },
+    usage: {
+      dayKey: "2024-01-01",
+      elapsedMs: 0,
+      extraMs: 0,
+      blockingDisabled: overrides.blockingDisabled ?? false,
+    },
     elapsedMs: overrides.elapsedMs ?? 0,
     effectiveLimitMs: overrides.limitMs ?? 30 * 60_000,
     blockAll: overrides.blockAll ?? false,

@@ -1,18 +1,22 @@
 {
   "name": "firefoxscreentime",
-  "type": "module",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "bun run scripts/build.ts && web-ext build --source-dir dist --overwrite-dest",
+    "build": "bun run scripts/build.ts && web-ext build --source-dir dist --overwrite-dest && bun run format",
     "dev": "bun run scripts/build.ts --watch",
     "firefox": "bun run build && web-ext run --source-dir dist",
-    "test": "bun test",
+    "format": "oxfmt",
+    "lint": "oxlint",
+    "test": "bun run lint && bun test",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/firefox-webext-browser": "^120.0.4",
-    "web-ext": "^8.9.0",
-    "typescript": "^7.0.2"
+    "oxfmt": "^0.75.0",
+    "oxlint": "^1.90.0",
+    "typescript": "^7.0.2",
+    "web-ext": "^8.9.0"
   }
 }

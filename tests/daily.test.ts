@@ -19,7 +19,12 @@ describe("daily accounting", () => {
   test("resets usage and extensions on a new local day", () => {
     const yesterday = new Date(2026, 7, 21, 23, 59).getTime();
     const today = new Date(2026, 7, 22, 0, 1).getTime();
-    const usage = { ...freshDailyUsage(yesterday), elapsedMs: 60_000, extraMs: 300_000, blockingDisabled: true };
+    const usage = {
+      ...freshDailyUsage(yesterday),
+      elapsedMs: 60_000,
+      extraMs: 300_000,
+      blockingDisabled: true,
+    };
     expect(rollUsageToNow(usage, today)).toEqual(freshDailyUsage(today));
   });
 
