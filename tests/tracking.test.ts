@@ -69,13 +69,38 @@ describe("tab tracking transitions", () => {
 
 describe("overlay mode", () => {
   test("block-everything mode covers every tab", () => {
-    expect(overlayMode({ blockAll: true, blocked: false }, false)).toBe("block-all");
-    expect(overlayMode({ blockAll: true, blocked: true }, true)).toBe("block-all");
+    expect(overlayMode({ blockAll: true, blockTracked: false, blocked: false }, false)).toBe(
+      "block-all",
+    );
+    expect(overlayMode({ blockAll: true, blockTracked: false, blocked: true }, true)).toBe(
+      "block-all",
+    );
+  });
+
+  test("block-tracked mode covers tracked tabs regardless of remaining time", () => {
+    expect(overlayMode({ blockAll: false, blockTracked: true, blocked: false }, true)).toBe(
+      "block-tracked",
+    );
+    expect(overlayMode({ blockAll: false, blockTracked: true, blocked: true }, true)).toBe(
+      "block-tracked",
+    );
+    expect(
+      overlayMode({ blockAll: false, blockTracked: true, blocked: false }, false),
+    ).toBeUndefined();
+    expect(overlayMode({ blockAll: true, blockTracked: true, blocked: false }, false)).toBe(
+      "block-all",
+    );
   });
 
   test("regular mode only covers tracked tabs past the limit", () => {
-    expect(overlayMode({ blockAll: false, blocked: true }, true)).toBe("limit");
-    expect(overlayMode({ blockAll: false, blocked: true }, false)).toBeUndefined();
-    expect(overlayMode({ blockAll: false, blocked: false }, true)).toBeUndefined();
+    expect(overlayMode({ blockAll: false, blockTracked: false, blocked: true }, true)).toBe(
+      "limit",
+    );
+    expect(
+      overlayMode({ blockAll: false, blockTracked: false, blocked: true }, false),
+    ).toBeUndefined();
+    expect(
+      overlayMode({ blockAll: false, blockTracked: false, blocked: false }, true),
+    ).toBeUndefined();
   });
 });

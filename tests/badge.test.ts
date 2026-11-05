@@ -8,6 +8,7 @@ function status(
     elapsedMs?: number;
     limitMs?: number;
     blockAll?: boolean;
+    blockTracked?: boolean;
     blockingDisabled?: boolean;
   } = {},
 ) {
@@ -22,13 +23,15 @@ function status(
     elapsedMs: overrides.elapsedMs ?? 0,
     effectiveLimitMs: overrides.limitMs ?? 30 * 60_000,
     blockAll: overrides.blockAll ?? false,
+    blockTracked: overrides.blockTracked ?? false,
   };
 }
 
 describe("badgeText", () => {
-  test("is empty when disabled or blocking everything", () => {
+  test("is empty when disabled or a block mode is on", () => {
     expect(badgeText(status({ showBadge: false }))).toBe("");
     expect(badgeText(status({ blockAll: true }))).toBe("");
+    expect(badgeText(status({ blockTracked: true }))).toBe("");
   });
 
   test("shows remaining minutes rounded up", () => {

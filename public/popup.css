@@ -79,6 +79,50 @@ h1 {
     serif;
   font-variant-numeric: tabular-nums;
 }
+.elapsed-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.meter button.pause {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  place-items: center;
+  /* Georgia's figures sit low in their line box; nudge down to line up with the digits. */
+  transform: translateY(3px);
+  border: 1px solid #52625a;
+  background: transparent;
+  color: #f7f1df;
+}
+.meter button.pause:hover,
+.meter button.pause:focus-visible {
+  border-color: #f09a72;
+  background: #26362f;
+}
+.meter button.pause[data-active="true"] {
+  border-color: #d85832;
+  background: #d85832;
+  color: #fff;
+}
+.meter button.pause[data-active="true"]:hover,
+.meter button.pause[data-active="true"]:focus-visible {
+  border-color: #bd4323;
+  background: #bd4323;
+}
+.pause svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+}
+.pause .icon-play,
+.pause[data-active="true"] .icon-pause {
+  display: none;
+}
+.pause[data-active="true"] .icon-play {
+  display: block;
+}
 button.reset {
   margin-left: auto;
 }

@@ -1,6 +1,7 @@
 export const STORAGE_SETTINGS_KEY = "settings";
 export const STORAGE_USAGE_KEY = "dailyUsage";
 export const STORAGE_BLOCK_ALL_KEY = "blockAll";
+export const STORAGE_BLOCK_TRACKED_KEY = "blockTracked";
 export const TAB_INHERITED_KEY = "screenTimeInherited";
 export const TAB_EXCLUDED_KEY = "screenTimeExcluded";
 
@@ -34,6 +35,8 @@ export interface StatusSnapshot {
   blocked: boolean;
   /** Block-everything mode: every tab is blocked and the daily timer is paused. */
   blockAll: boolean;
+  /** Block-tracked mode: tracked tabs are blocked regardless of remaining time; the timer is paused. */
+  blockTracked: boolean;
   currentTabTracked: boolean;
   currentTabExcluded: boolean;
 }
@@ -43,6 +46,7 @@ export type ExtensionRequest =
   | { type: "set-tab-excluded"; tabId: number; excluded: boolean }
   | { type: "save-settings"; settings: Settings }
   | { type: "set-block-all"; enabled: boolean; tabId?: number }
+  | { type: "set-block-tracked"; enabled: boolean; tabId?: number }
   | { type: "extend"; durationMinutes: 5 | 15 | "rest-of-day" }
   | { type: "reset-today"; tabId?: number };
 
@@ -56,8 +60,8 @@ export type ContentUpdate = {
   status: StatusSnapshot;
 };
 
-/** Why a tab's content is covered: the daily limit was reached, or block-everything mode is on. */
-export type OverlayMode = "limit" | "block-all";
+/** Why a tab's content is covered: the daily limit was reached, or a block mode is on. */
+export type OverlayMode = "limit" | "block-all" | "block-tracked";
 
 export const DEFAULT_SETTINGS: Settings = {
   trackedHostnames: [],

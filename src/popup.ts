@@ -16,8 +16,10 @@ const form = requiredElement<HTMLFormElement>("settings-form");
 const feedback = requiredElement("feedback");
 const toggleTab = requiredElement<HTMLButtonElement>("toggle-tab");
 const toggleBlockAll = requiredElement<HTMLButtonElement>("toggle-block-all");
+const toggleBlockTracked = requiredElement<HTMLButtonElement>("toggle-block-tracked");
 const resetToday = requiredElement<HTMLButtonElement>("reset-today");
 let blockAll = false;
+let blockTracked = false;
 let currentTabId: number | undefined;
 let currentTabExcluded = false;
 
@@ -39,12 +41,14 @@ function formatDuration(milliseconds: number): string {
 
 function render(status: StatusSnapshot, populateForm = false): void {
   elapsed.textContent = formatDuration(status.elapsedMs);
-  remaining.dataset.blockAll = String(status.blockAll);
+  remaining.dataset.blockAll = String(status.blockAll || status.blockTracked);
   remaining.textContent = status.blockAll
     ? "Blocking everything · paused"
-    : status.usage.blockingDisabled
-      ? "Open for today"
-      : `${formatDuration(remainingMs(status))} left`;
+    : status.blockTracked
+      ? "Blocking tracked sites · paused"
+      : status.usage.blockingDisabled
+        ? "Open for today"
+        : `${formatDuration(remainingMs(status))} left`;
   stateLabel.textContent = status.currentTabTracked
     ? "This tab is tracked"
     : status.currentTabExcluded
@@ -60,6 +64,13 @@ function render(status: StatusSnapshot, populateForm = false): void {
   blockAll = status.blockAll;
   toggleBlockAll.textContent = status.blockAll ? "Back to regular mode" : "Block everything";
   toggleBlockAll.dataset.active = String(status.blockAll);
+  toggleBlockAll.setAttribute("aria-pressed", String(status.blockAll));
+  blockTracked = status.blockTracked;
+  const blockTrackedLabel = status.blockTracked ? "Unblock tracked sites" : "Block tracked sites";
+  toggleBlockTracked.setAttribute("aria-label", blockTrackedLabel);
+  toggleBlockTracked.title = blockTrackedLabel;
+  toggleBlockTracked.dataset.active = String(status.blockTracked);
+  toggleBlockTracked.setAttribute("aria-pressed", String(status.blockTracked));
   if (populateForm) {
     limitInput.value = String(status.settings.dailyLimitMinutes);
     hostnamesInput.value = status.settings.trackedHostnames.join("\n");
@@ -125,6 +136,21 @@ toggleBlockAll.addEventListener("click", async () => {
     else feedback.textContent = response.error;
   } finally {
     toggleBlockAll.disabled = false;
+  }
+});
+
+toggleBlockTracked.addEventListener("click", async () => {
+  toggleBlockTracked.disabled = true;
+  try {
+    const response = await request({
+      type: "set-block-tracked",
+      enabled: !blockTracked,
+      tabId: currentTabId,
+    });
+    if (response.ok) render(response.status);
+    else feedback.textContent = response.error;
+  } finally {
+    toggleBlockTracked.disabled = false;
   }
 });
 

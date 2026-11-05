@@ -11,6 +11,7 @@ import { overlayMode, setTabExcluded, transitionTabState } from "./shared/tracki
 import {
   DEFAULT_SETTINGS,
   STORAGE_BLOCK_ALL_KEY,
+  STORAGE_BLOCK_TRACKED_KEY,
   STORAGE_SETTINGS_KEY,
   STORAGE_USAGE_KEY,
   TAB_EXCLUDED_KEY,
@@ -34,6 +35,7 @@ const REQUEST_TYPES = new Set<unknown>([
   "extend",
   "set-tab-excluded",
   "set-block-all",
+  "set-block-tracked",
   "reset-today",
 ]);
 const tabStates = new Map<number, TabTrackingState>();
@@ -52,6 +54,8 @@ let settings: Settings = DEFAULT_SETTINGS;
 let usage: DailyUsage = freshDailyUsage(Date.now());
 /** Block-everything mode: all tabs are covered and the daily timer is paused. Persists until toggled off. */
 let blockAll = false;
+/** Block-tracked mode: tracked tabs are covered regardless of remaining time. Persists until toggled off. */
+let blockTracked = false;
 let focusedWindowId = browser.windows.WINDOW_ID_NONE;
 let activeTabId: number | undefined;
 let activeStartedAt: number | undefined;
@@ -83,8 +87,10 @@ async function initialize(): Promise<void> {
     STORAGE_SETTINGS_KEY,
     STORAGE_USAGE_KEY,
     STORAGE_BLOCK_ALL_KEY,
+    STORAGE_BLOCK_TRACKED_KEY,
   ]);
   blockAll = stored[STORAGE_BLOCK_ALL_KEY] === true;
+  blockTracked = stored[STORAGE_BLOCK_TRACKED_KEY] === true;
   const storedUsage = stored[STORAGE_USAGE_KEY] as DailyUsage | undefined;
 
   if (stored[STORAGE_SETTINGS_KEY] !== undefined)
@@ -147,7 +153,7 @@ function validateSettings(candidate: unknown): Settings {
 }
 
 function canAccumulate(): boolean {
-  if (blockAll) return false;
+  if (blockAll || blockTracked) return false;
   if (activeTabId === undefined || focusedWindowId === browser.windows.WINDOW_ID_NONE) return false;
   return (
     tabStates.get(activeTabId)?.tracked === true &&
@@ -206,6 +212,7 @@ function snapshot(tabId = activeTabId): StatusSnapshot {
     effectiveLimitMs: effectiveLimitMs(current, settings.dailyLimitMinutes),
     blocked: isDailyBlocked(current, settings.dailyLimitMinutes),
     blockAll,
+    blockTracked,
     currentTabTracked: state?.tracked === true,
     currentTabExcluded: state?.excluded === true,
   };
@@ -214,6 +221,7 @@ function snapshot(tabId = activeTabId): StatusSnapshot {
 function tabTitle(state: TabTrackingState | undefined, status: StatusSnapshot): string {
   if (status.blockAll) return "Screen Time: blocking everything";
   if (state?.tracked) {
+    if (status.blockTracked) return "Screen Time: tracked sites blocked";
     return status.blocked
       ? "Screen Time: daily limit reached"
       : `Screen Time: tracked, ${Math.ceil(remainingMs(status) / 60_000)} min remaining`;
@@ -310,6 +318,12 @@ async function setBlockAll(enabled: unknown): Promise<void> {
   await browser.storage.local.set({ [STORAGE_BLOCK_ALL_KEY]: blockAll });
 }
 
+async function setBlockTracked(enabled: unknown): Promise<void> {
+  if (typeof enabled !== "boolean") throw new Error("Invalid block-tracked request.");
+  blockTracked = enabled;
+  await browser.storage.local.set({ [STORAGE_BLOCK_TRACKED_KEY]: blockTracked });
+}
+
 async function setTabExclusion(tabId: unknown, excluded: unknown): Promise<void> {
   if (typeof tabId !== "number" || typeof excluded !== "boolean")
     throw new Error("Invalid tab request.");
@@ -323,6 +337,7 @@ async function setTabExclusion(tabId: unknown, excluded: unknown): Promise<void>
 
 async function extend(durationMinutes: ExtendDuration): Promise<void> {
   if (blockAll) throw new Error("Turn off block-everything mode first.");
+  if (blockTracked) throw new Error("Turn off block-tracked mode first.");
   if (durationMinutes === "rest-of-day") {
     usage = { ...usage, blockingDisabled: true };
   } else if (durationMinutes === 5 || durationMinutes === 15) {
@@ -347,6 +362,8 @@ async function applyRequest(
       return saveSettings(request.settings);
     case "set-block-all":
       return setBlockAll(request.enabled);
+    case "set-block-tracked":
+      return setBlockTracked(request.enabled);
     case "set-tab-excluded":
       return setTabExclusion(request.tabId, request.excluded);
     case "extend":

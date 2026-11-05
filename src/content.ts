@@ -76,6 +76,25 @@ function buildBlockAllView(): OverlayView {
   return { root, note, extensions: [] };
 }
 
+function buildBlockTrackedView(): OverlayView {
+  const note = createElement(
+    "div",
+    styles.note,
+    "Turn this mode off from the Screen Time toolbar button.",
+  );
+  const root = createDialog(
+    "Tracked sites blocked",
+    "This site is paused.",
+    createElement(
+      "p",
+      styles.message,
+      "Tracked sites are blocked regardless of your remaining time, and your daily timer is on hold. The page is still here beneath this screen.",
+    ),
+    note,
+  );
+  return { root, note, extensions: [] };
+}
+
 function buildTimeUpView(status: StatusSnapshot): OverlayView {
   const extensions = (
     [
@@ -133,7 +152,12 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
   host.setAttribute("data-firefox-screen-time", "blocked");
   styles.applyStyle(host, styles.host);
   const shadow = host.attachShadow({ mode: "closed" });
-  const view = mode === "block-all" ? buildBlockAllView() : buildTimeUpView(status);
+  const view =
+    mode === "block-all"
+      ? buildBlockAllView()
+      : mode === "block-tracked"
+        ? buildBlockTrackedView()
+        : buildTimeUpView(status);
   shadow.append(view.root);
   overlayHost = host;
   const attach = (): void => (document.documentElement ?? document).append(host);
@@ -160,7 +184,7 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
           type: "extend",
           durationMinutes,
         } satisfies ExtensionRequest)) as ExtensionResponse;
-        if (response.ok && !response.status.blocked && !response.status.blockAll) removeOverlay();
+        if (response.ok && overlayMode(response.status, true) === undefined) removeOverlay();
         else if (!response.ok) view.note.textContent = response.error;
       } catch {
         view.note.textContent = "Could not extend the allowance. Please try again.";

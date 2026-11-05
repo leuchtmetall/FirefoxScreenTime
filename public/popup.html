@@ -20,7 +20,27 @@
       <section class="meter" aria-label="Today's usage">
         <div>
           <span class="label">Used today</span>
-          <strong id="elapsed">0:00</strong>
+          <div class="elapsed-row">
+            <strong id="elapsed">0:00</strong>
+            <button
+              id="toggle-block-tracked"
+              class="pause"
+              type="button"
+              aria-pressed="false"
+              aria-label="Block tracked sites"
+              title="Block tracked sites"
+            >
+              <svg class="icon-pause" viewBox="0 0 16 16" aria-hidden="true">
+                <rect x="3.5" y="2.5" width="3" height="11" rx="1" />
+                <rect x="9.5" y="2.5" width="3" height="11" rx="1" />
+              </svg>
+              <svg class="icon-play" viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  d="M4.5 2.8v10.4a.8.8 0 0 0 1.2.7l8.3-5.2a.8.8 0 0 0 0-1.4L5.7 2.1a.8.8 0 0 0-1.2.7z"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
         <span id="remaining" class="remaining">Loading</span>
       </section>

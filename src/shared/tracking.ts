@@ -13,13 +13,18 @@ export function transitionTabState(
   return { inherited, excluded, tracked: !excluded && (direct || inherited) };
 }
 
-/** Block-everything mode covers every tab; otherwise only tracked tabs past the daily limit. */
+/**
+ * Block-everything mode covers every tab; block-tracked mode covers every tracked tab; otherwise
+ * only tracked tabs past the daily limit are covered.
+ */
 export function overlayMode(
-  status: Pick<StatusSnapshot, "blockAll" | "blocked">,
+  status: Pick<StatusSnapshot, "blockAll" | "blockTracked" | "blocked">,
   tracked: boolean,
 ): OverlayMode | undefined {
   if (status.blockAll) return "block-all";
-  return tracked && status.blocked ? "limit" : undefined;
+  if (!tracked) return undefined;
+  if (status.blockTracked) return "block-tracked";
+  return status.blocked ? "limit" : undefined;
 }
 
 /** Manually excludes a tab from tracking (or re-includes it), keeping it excluded across navigations. */
