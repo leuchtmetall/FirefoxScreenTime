@@ -11,6 +11,7 @@ const remaining = requiredElement("remaining");
 const stateLabel = requiredElement("state-label");
 const limitInput = requiredElement<HTMLInputElement>("daily-limit");
 const showBadgeInput = requiredElement<HTMLInputElement>("show-badge");
+const startDayPausedInput = requiredElement<HTMLInputElement>("start-day-paused");
 const hostnamesInput = requiredElement<HTMLTextAreaElement>("hostnames");
 const form = requiredElement<HTMLFormElement>("settings-form");
 const feedback = requiredElement("feedback");
@@ -75,6 +76,7 @@ function render(status: StatusSnapshot, populateForm = false): void {
     limitInput.value = String(status.settings.dailyLimitMinutes);
     hostnamesInput.value = status.settings.trackedHostnames.join("\n");
     showBadgeInput.checked = status.settings.showBadge;
+    startDayPausedInput.checked = status.settings.startDayPaused;
   }
 }
 
@@ -94,6 +96,7 @@ form.addEventListener("submit", async (event) => {
   const settings: Settings = {
     dailyLimitMinutes: Number(limitInput.value),
     showBadge: showBadgeInput.checked,
+    startDayPaused: startDayPausedInput.checked,
     trackedHostnames: hostnamesInput.value
       .split(/[,\n]/)
       .map((value) => value.trim())

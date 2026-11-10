@@ -218,6 +218,9 @@ label.checkbox {
   font-weight: 700;
   cursor: pointer;
 }
+label.checkbox:has(+ label.checkbox) {
+  margin-bottom: 9px;
+}
 label.checkbox input {
   width: auto;
   margin: 0;

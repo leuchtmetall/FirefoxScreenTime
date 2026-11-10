@@ -96,6 +96,9 @@ async function initialize(): Promise<void> {
   if (stored[STORAGE_SETTINGS_KEY] !== undefined)
     settings = validateSettings(stored[STORAGE_SETTINGS_KEY]);
   usage = rollUsageToNow(storedUsage ?? freshDailyUsage(now), now);
+  // The day changed while the browser was closed.
+  if (storedUsage && storedUsage.dayKey !== usage.dayKey && settings.startDayPaused)
+    blockTracked = true;
 
   const [tabs, lastFocused] = await Promise.all([
     browser.tabs.query({}),
@@ -128,6 +131,7 @@ async function initialize(): Promise<void> {
   await browser.storage.local.set({
     [STORAGE_SETTINGS_KEY]: settings,
     [STORAGE_USAGE_KEY]: usage,
+    [STORAGE_BLOCK_TRACKED_KEY]: blockTracked,
   });
   await browser.action.setBadgeTextColor({ color: "#ffffff" }).catch(ignore);
   beginActiveSession(now);
@@ -137,9 +141,8 @@ async function initialize(): Promise<void> {
 const ready = initialize();
 
 function validateSettings(candidate: unknown): Settings {
-  const { dailyLimitMinutes, trackedHostnames, showBadge } = (candidate ?? {}) as Partial<
-    Record<keyof Settings, unknown>
-  >;
+  const { dailyLimitMinutes, trackedHostnames, showBadge, startDayPaused } = (candidate ??
+    {}) as Partial<Record<keyof Settings, unknown>>;
   const limit = Number(dailyLimitMinutes);
   if (!Number.isInteger(limit) || limit < 1 || limit > 1_440) {
     throw new Error("Daily limit must be a whole number from 1 to 1440 minutes.");
@@ -149,6 +152,8 @@ function validateSettings(candidate: unknown): Settings {
     dailyLimitMinutes: limit,
     trackedHostnames: normalizeHostnames(trackedHostnames),
     showBadge: typeof showBadge === "boolean" ? showBadge : DEFAULT_SETTINGS.showBadge,
+    startDayPaused:
+      typeof startDayPaused === "boolean" ? startDayPaused : DEFAULT_SETTINGS.startDayPaused,
   };
 }
 
@@ -188,7 +193,12 @@ async function settle(eventTime: number): Promise<number> {
   const previous = usage;
   usage = accruedUsage(now);
   activeStartedAt = undefined;
-  if (usage !== previous) await saveUsage();
+  if (usage !== previous) {
+    // A new day began: pause before saving the rolled usage, so an interrupted write is retried on startup.
+    if (usage.dayKey !== previous.dayKey && settings.startDayPaused && !blockTracked)
+      await setBlockTracked(true);
+    await saveUsage();
+  }
   return now;
 }
 

@@ -10,6 +10,8 @@ export interface Settings {
   dailyLimitMinutes: number;
   /** Show remaining minutes as a badge on the toolbar icon. */
   showBadge: boolean;
+  /** Turn on block-tracked mode at the start of every day, so tracked sites must be un-paused first. */
+  startDayPaused: boolean;
 }
 
 export interface DailyUsage {
@@ -67,4 +69,5 @@ export const DEFAULT_SETTINGS: Settings = {
   trackedHostnames: [],
   dailyLimitMinutes: 30,
   showBadge: true,
+  startDayPaused: false,
 };
