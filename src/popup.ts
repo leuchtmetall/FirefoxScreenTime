@@ -49,7 +49,7 @@ function remainingLabel(status: StatusSnapshot): string {
 
 function renderTimer(status: StatusSnapshot): void {
   elapsed.textContent = formatDuration(status.usage.elapsedMs);
-  remaining.dataset.blockAll = String(status.blockAll || status.blockTracked);
+  remaining.dataset["blockAll"] = String(status.blockAll || status.blockTracked);
   remaining.textContent = remainingLabel(status);
 }
 
@@ -62,7 +62,7 @@ function tabStateLabel(status: StatusSnapshot): string {
 
 function renderTabState(status: StatusSnapshot): void {
   stateLabel.textContent = tabStateLabel(status);
-  stateLabel.dataset.tracked = String(status.currentTabTracked);
+  stateLabel.dataset["tracked"] = String(status.currentTabTracked);
   toggleTab.hidden =
     currentTabId === undefined || (!status.currentTabTracked && !status.currentTabExcluded);
   toggleTab.textContent = status.currentTabExcluded
@@ -72,12 +72,12 @@ function renderTabState(status: StatusSnapshot): void {
 
 function renderBlockToggles(status: StatusSnapshot): void {
   toggleBlockAll.textContent = status.blockAll ? "Back to regular mode" : "Block everything";
-  toggleBlockAll.dataset.active = String(status.blockAll);
+  toggleBlockAll.dataset["active"] = String(status.blockAll);
   toggleBlockAll.setAttribute("aria-pressed", String(status.blockAll));
   const blockTrackedLabel = status.blockTracked ? "Unblock tracked sites" : "Block tracked sites";
   toggleBlockTracked.setAttribute("aria-label", blockTrackedLabel);
   toggleBlockTracked.title = blockTrackedLabel;
-  toggleBlockTracked.dataset.active = String(status.blockTracked);
+  toggleBlockTracked.dataset["active"] = String(status.blockTracked);
   toggleBlockTracked.setAttribute("aria-pressed", String(status.blockTracked));
 }
 
@@ -207,13 +207,13 @@ function disarmReset(): void {
   window.clearTimeout(resetConfirmTimer);
   resetConfirmTimer = undefined;
   resetToday.textContent = "Reset today";
-  delete resetToday.dataset.armed;
+  delete resetToday.dataset["armed"];
 }
 
 resetToday.addEventListener("click", () => {
   if (resetConfirmTimer === undefined) {
     resetToday.textContent = "Click again to reset";
-    resetToday.dataset.armed = "true";
+    resetToday.dataset["armed"] = "true";
     resetConfirmTimer = window.setTimeout(disarmReset, 4_000);
     return;
   }
