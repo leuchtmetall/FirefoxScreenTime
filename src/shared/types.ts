@@ -1,10 +1,3 @@
-export const STORAGE_SETTINGS_KEY = "settings";
-export const STORAGE_USAGE_KEY = "dailyUsage";
-export const STORAGE_BLOCK_ALL_KEY = "blockAll";
-export const STORAGE_BLOCK_TRACKED_KEY = "blockTracked";
-export const TAB_INHERITED_KEY = "screenTimeInherited";
-export const TAB_EXCLUDED_KEY = "screenTimeExcluded";
-
 export interface Settings {
   trackedHostnames: string[];
   dailyLimitMinutes: number;
@@ -31,7 +24,6 @@ export interface TabTrackingState {
 export interface StatusSnapshot {
   settings: Settings;
   usage: DailyUsage;
-  elapsedMs: number;
   effectiveLimitMs: number;
   /** The daily limit is reached (regular mode); independent of block-everything mode. */
   blocked: boolean;
@@ -64,10 +56,3 @@ export type ContentUpdate = {
 
 /** Why a tab's content is covered: the daily limit was reached, or a block mode is on. */
 export type OverlayMode = "limit" | "block-all" | "block-tracked";
-
-export const DEFAULT_SETTINGS: Settings = {
-  trackedHostnames: [],
-  dailyLimitMinutes: 30,
-  showBadge: true,
-  startDayPaused: false,
-};

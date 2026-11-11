@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { badgeText } from "../src/shared/badge.ts";
-import { DEFAULT_SETTINGS } from "../src/shared/types.ts";
+import { DEFAULT_SETTINGS } from "../src/shared/constants.ts";
 
 function status(
   overrides: {
@@ -16,11 +16,10 @@ function status(
     settings: { ...DEFAULT_SETTINGS, showBadge: overrides.showBadge ?? true },
     usage: {
       dayKey: "2024-01-01",
-      elapsedMs: 0,
+      elapsedMs: overrides.elapsedMs ?? 0,
       extraMs: 0,
       blockingDisabled: overrides.blockingDisabled ?? false,
     },
-    elapsedMs: overrides.elapsedMs ?? 0,
     effectiveLimitMs: overrides.limitMs ?? 30 * 60_000,
     blockAll: overrides.blockAll ?? false,
     blockTracked: overrides.blockTracked ?? false,

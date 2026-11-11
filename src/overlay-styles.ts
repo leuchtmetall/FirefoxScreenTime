@@ -6,22 +6,11 @@
  * (`style-src` without `'unsafe-inline'`) block the latter two, even inside a shadow root.
  */
 
+import { colors } from "./shared/colors.ts";
+
 export type Style = Readonly<Record<string, string>>;
 
 const fontStack = `ui-rounded, "Avenir Next", Avenir, system-ui, sans-serif`;
-
-const colors = {
-  background: "#17231f",
-  text: "#f7f1df",
-  muted: "#c9d0c5",
-  faint: "#7f9087",
-  accent: "#f09a72",
-  border: "#52625a",
-  hoverBackground: "#26362f",
-  primary: "#d85832",
-  primaryBorder: "#e16a3d",
-  primaryHover: "#ec7045",
-} as const;
 
 export const host: Style = {
   all: "initial",
@@ -136,12 +125,16 @@ export function applyStyle(element: HTMLElement, style: Style): void {
 
 /** Applies button styles, switching to the active variant on hover and keyboard focus. */
 export function applyButtonStyle(element: HTMLButtonElement, styles: ButtonStyles): void {
+  const activeStyle = { ...styles.base, ...styles.active };
+  let wasActive = false;
   const refresh = (): void => {
     const active = element.matches(":hover") || element.matches(":focus-visible");
-    applyStyle(element, active ? { ...styles.base, ...styles.active } : styles.base);
+    if (active === wasActive) return;
+    wasActive = active;
+    applyStyle(element, active ? activeStyle : styles.base);
   };
   for (const event of ["pointerenter", "pointerleave", "focus", "blur"]) {
     element.addEventListener(event, refresh);
   }
-  refresh();
+  applyStyle(element, styles.base);
 }

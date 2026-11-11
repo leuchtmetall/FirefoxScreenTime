@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { overlayMode, setTabExcluded, transitionTabState } from "../src/shared/tracking.ts";
+import { overlayMode } from "../src/shared/overlay.ts";
+import { setTabExcluded, transitionTabState } from "../src/shared/tracking.ts";
 
 const configured = ["example.com"];
 

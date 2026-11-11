@@ -1,5 +1,6 @@
 import * as styles from "./overlay-styles.ts";
-import { overlayMode } from "./shared/tracking.ts";
+import { MS_PER_MINUTE } from "./shared/constants.ts";
+import { overlayMode } from "./shared/overlay.ts";
 import type {
   ContentUpdate,
   ExtendDuration,
@@ -13,8 +14,12 @@ let overlayHost: HTMLDivElement | undefined;
 let overlayObserver: MutationObserver | undefined;
 let shownMode: OverlayMode | undefined;
 
+/** Input events swallowed while the overlay is up, so the covered page cannot be scrolled or operated. */
+const BLOCKED_EVENTS = ["wheel", "touchmove", "keydown"] as const;
+const PAGE_STILL_HERE = "The page is still here beneath this screen.";
+
 function formatDuration(milliseconds: number): string {
-  const totalMinutes = Math.max(0, Math.ceil(milliseconds / 60_000));
+  const totalMinutes = Math.max(0, Math.ceil(milliseconds / MS_PER_MINUTE));
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
@@ -57,39 +62,17 @@ function createDialog(eyebrow: string, title: string, ...content: Node[]): HTMLE
   return veil;
 }
 
-function buildBlockAllView(): OverlayView {
+/** The view for both block modes, which can only be turned off from the toolbar popup. */
+function buildPausedView(eyebrow: string, title: string, message: string): OverlayView {
   const note = createElement(
     "div",
     styles.note,
     "Turn this mode off from the Screen Time toolbar button.",
   );
   const root = createDialog(
-    "Block everything",
-    "Everything is paused.",
-    createElement(
-      "p",
-      styles.message,
-      "All pages are blocked and your daily timer is on hold. The page is still here beneath this screen.",
-    ),
-    note,
-  );
-  return { root, note, extensions: [] };
-}
-
-function buildBlockTrackedView(): OverlayView {
-  const note = createElement(
-    "div",
-    styles.note,
-    "Turn this mode off from the Screen Time toolbar button.",
-  );
-  const root = createDialog(
-    "Tracked sites blocked",
-    "This site is paused.",
-    createElement(
-      "p",
-      styles.message,
-      "Tracked sites are blocked regardless of your remaining time, and your daily timer is on hold. The page is still here beneath this screen.",
-    ),
+    eyebrow,
+    title,
+    createElement("p", styles.message, `${message} ${PAGE_STILL_HERE}`),
     note,
   );
   return { root, note, extensions: [] };
@@ -116,13 +99,32 @@ function buildTimeUpView(status: StatusSnapshot): OverlayView {
       "p",
       styles.message,
       "You have used ",
-      createElement("span", styles.time, formatDuration(status.elapsedMs)),
-      " of tracked time today. The page is still here beneath this screen.",
+      createElement("span", styles.time, formatDuration(status.usage.elapsedMs)),
+      ` of tracked time today. ${PAGE_STILL_HERE}`,
     ),
     createElement("div", styles.actions, ...extensions.map(({ button }) => button)),
     note,
   );
   return { root, note, extensions };
+}
+
+function buildView(mode: OverlayMode, status: StatusSnapshot): OverlayView {
+  switch (mode) {
+    case "block-all":
+      return buildPausedView(
+        "Block everything",
+        "Everything is paused.",
+        "All pages are blocked and your daily timer is on hold.",
+      );
+    case "block-tracked":
+      return buildPausedView(
+        "Tracked sites blocked",
+        "This site is paused.",
+        "Tracked sites are blocked regardless of your remaining time, and your daily timer is on hold.",
+      );
+    case "limit":
+      return buildTimeUpView(status);
+  }
 }
 
 function preventInteraction(event: Event): void {
@@ -139,40 +141,11 @@ function removeOverlay(): void {
   overlayObserver = undefined;
   overlayHost?.remove();
   overlayHost = undefined;
-  window.removeEventListener("wheel", preventInteraction, true);
-  window.removeEventListener("touchmove", preventInteraction, true);
-  window.removeEventListener("keydown", preventInteraction, true);
+  for (const type of BLOCKED_EVENTS) window.removeEventListener(type, preventInteraction, true);
 }
 
-function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
-  if (overlayHost?.isConnected && shownMode === mode) return;
-  removeOverlay();
-  shownMode = mode;
-  const host = document.createElement("div");
-  host.setAttribute("data-firefox-screen-time", "blocked");
-  styles.applyStyle(host, styles.host);
-  const shadow = host.attachShadow({ mode: "closed" });
-  const view =
-    mode === "block-all"
-      ? buildBlockAllView()
-      : mode === "block-tracked"
-        ? buildBlockTrackedView()
-        : buildTimeUpView(status);
-  shadow.append(view.root);
-  overlayHost = host;
-  const attach = (): void => (document.documentElement ?? document).append(host);
-  attach();
-
-  // Put the same overlay back if the page removes it.
-  overlayObserver = new MutationObserver(() => {
-    if (!host.isConnected) attach();
-  });
-  overlayObserver.observe(document.documentElement, { childList: true });
-
-  window.addEventListener("wheel", preventInteraction, { capture: true, passive: false });
-  window.addEventListener("touchmove", preventInteraction, { capture: true, passive: false });
-  window.addEventListener("keydown", preventInteraction, true);
-
+/** Makes the time-up buttons request more time, removing the overlay once the tab is no longer blocked. */
+function wireExtensionButtons(view: OverlayView): void {
   const setButtonsDisabled = (disabled: boolean): void => {
     for (const { button } of view.extensions) button.disabled = disabled;
   };
@@ -192,6 +165,31 @@ function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
         if (overlayHost?.isConnected) setButtonsDisabled(false);
       }
     });
+  }
+}
+
+function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
+  if (overlayHost?.isConnected && shownMode === mode) return;
+  removeOverlay();
+  shownMode = mode;
+  const host = document.createElement("div");
+  host.setAttribute("data-firefox-screen-time", "blocked");
+  styles.applyStyle(host, styles.host);
+  const view = buildView(mode, status);
+  host.attachShadow({ mode: "closed" }).append(view.root);
+  wireExtensionButtons(view);
+  overlayHost = host;
+
+  const attach = (): void => document.documentElement.append(host);
+  attach();
+  // Put the same overlay back if the page removes it.
+  overlayObserver = new MutationObserver(() => {
+    if (!host.isConnected) attach();
+  });
+  overlayObserver.observe(document.documentElement, { childList: true });
+
+  for (const type of BLOCKED_EVENTS) {
+    window.addEventListener(type, preventInteraction, { capture: true, passive: false });
   }
 }
 

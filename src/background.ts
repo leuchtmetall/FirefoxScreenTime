@@ -1,54 +1,52 @@
 import {
-  addActiveInterval,
-  effectiveLimitMs,
-  freshDailyUsage,
-  isDailyBlocked,
-  remainingMs,
-  rollUsageToNow,
-} from "./shared/daily.ts";
-import { badgeText } from "./shared/badge.ts";
-import { overlayMode, setTabExcluded, transitionTabState } from "./shared/tracking.ts";
+  forgetPresentation,
+  initializePresentation,
+  presentTab,
+} from "./background/presentation.ts";
 import {
   DEFAULT_SETTINGS,
+  MS_PER_MINUTE,
   STORAGE_BLOCK_ALL_KEY,
   STORAGE_BLOCK_TRACKED_KEY,
   STORAGE_SETTINGS_KEY,
   STORAGE_USAGE_KEY,
   TAB_EXCLUDED_KEY,
   TAB_INHERITED_KEY,
-  type ContentUpdate,
-  type DailyUsage,
-  type ExtendDuration,
-  type ExtensionRequest,
-  type ExtensionResponse,
-  type OverlayMode,
-  type Settings,
-  type StatusSnapshot,
-  type TabTrackingState,
+} from "./shared/constants.ts";
+import {
+  addActiveInterval,
+  effectiveLimitMs,
+  freshDailyUsage,
+  isDailyBlocked,
+  rollUsageToNow,
+} from "./shared/daily.ts";
+import { validateSettings } from "./shared/settings.ts";
+import { setTabExcluded, transitionTabState } from "./shared/tracking.ts";
+import type {
+  DailyUsage,
+  ExtendDuration,
+  ExtensionRequest,
+  ExtensionResponse,
+  Settings,
+  StatusSnapshot,
+  TabTrackingState,
 } from "./shared/types.ts";
-import { normalizeHostnames } from "./shared/urls.ts";
 
 const CHECKPOINT_ALARM = "screen-time-checkpoint";
-const REQUEST_TYPES = new Set<unknown>([
-  "get-status",
-  "save-settings",
-  "extend",
-  "set-tab-excluded",
-  "set-block-all",
-  "set-block-tracked",
-  "reset-today",
-]);
+/** Keyed by request type so the compiler rejects this map when a request type is added or removed. */
+const REQUEST_TYPES: Record<ExtensionRequest["type"], true> = {
+  "get-status": true,
+  "save-settings": true,
+  extend: true,
+  "set-tab-excluded": true,
+  "set-block-all": true,
+  "set-block-tracked": true,
+  "reset-today": true,
+};
 const tabStates = new Map<number, TabTrackingState>();
 
-/** What each tab last displayed, so refreshes only call the browser APIs for values that changed. */
-interface TabPresentation {
-  icon: string;
-  title: string;
-  badgeColor: string;
-  mode: OverlayMode | undefined;
-}
-const presented = new Map<number, TabPresentation>();
-let presentedBadgeText: string | undefined;
+/** The parts of a status snapshot that are the same for every tab. */
+type SharedStatus = Omit<StatusSnapshot, "currentTabTracked" | "currentTabExcluded">;
 
 let settings: Settings = DEFAULT_SETTINGS;
 let usage: DailyUsage = freshDailyUsage(Date.now());
@@ -133,29 +131,12 @@ async function initialize(): Promise<void> {
     [STORAGE_USAGE_KEY]: usage,
     [STORAGE_BLOCK_TRACKED_KEY]: blockTracked,
   });
-  await browser.action.setBadgeTextColor({ color: "#ffffff" }).catch(ignore);
+  await initializePresentation();
   beginActiveSession(now);
   await refreshAllTabs();
 }
 
 const ready = initialize();
-
-function validateSettings(candidate: unknown): Settings {
-  const { dailyLimitMinutes, trackedHostnames, showBadge, startDayPaused } = (candidate ??
-    {}) as Partial<Record<keyof Settings, unknown>>;
-  const limit = Number(dailyLimitMinutes);
-  if (!Number.isInteger(limit) || limit < 1 || limit > 1_440) {
-    throw new Error("Daily limit must be a whole number from 1 to 1440 minutes.");
-  }
-  if (!Array.isArray(trackedHostnames)) throw new Error("Tracked hostnames must be a list.");
-  return {
-    dailyLimitMinutes: limit,
-    trackedHostnames: normalizeHostnames(trackedHostnames),
-    showBadge: typeof showBadge === "boolean" ? showBadge : DEFAULT_SETTINGS.showBadge,
-    startDayPaused:
-      typeof startDayPaused === "boolean" ? startDayPaused : DEFAULT_SETTINGS.startDayPaused,
-  };
-}
 
 function canAccumulate(): boolean {
   if (blockAll || blockTracked) return false;
@@ -172,9 +153,9 @@ function beginActiveSession(now: number): void {
 
 /** Usage including the active interval that has not been settled yet. */
 function accruedUsage(now: number): DailyUsage {
-  const current = rollUsageToNow(usage, now);
-  if (activeStartedAt === undefined) return current;
-  const accrued = addActiveInterval(current, activeStartedAt, now);
+  if (activeStartedAt === undefined) return rollUsageToNow(usage, now);
+  // Rolls over to a new day itself, counting only the part of the interval that falls in it.
+  const accrued = addActiveInterval(usage, activeStartedAt, now);
   if (accrued.blockingDisabled) return accrued;
   return {
     ...accrued,
@@ -212,76 +193,45 @@ async function accounted(eventTime: number, apply: () => Promise<void> | void): 
   }
 }
 
-function snapshot(tabId = activeTabId): StatusSnapshot {
+function sharedStatus(): SharedStatus {
   const current = accruedUsage(Math.max(Date.now(), lastAccountingAt));
-  const state = tabId === undefined ? undefined : tabStates.get(tabId);
   return {
     settings,
     usage: current,
-    elapsedMs: current.elapsedMs,
     effectiveLimitMs: effectiveLimitMs(current, settings.dailyLimitMinutes),
     blocked: isDailyBlocked(current, settings.dailyLimitMinutes),
     blockAll,
     blockTracked,
+  };
+}
+
+function snapshot(tabId = activeTabId, shared = sharedStatus()): StatusSnapshot {
+  const state = tabId === undefined ? undefined : tabStates.get(tabId);
+  return {
+    ...shared,
     currentTabTracked: state?.tracked === true,
     currentTabExcluded: state?.excluded === true,
   };
 }
 
-function tabTitle(state: TabTrackingState | undefined, status: StatusSnapshot): string {
-  if (status.blockAll) return "Screen Time: blocking everything";
-  if (state?.tracked) {
-    if (status.blockTracked) return "Screen Time: tracked sites blocked";
-    return status.blocked
-      ? "Screen Time: daily limit reached"
-      : `Screen Time: tracked, ${Math.ceil(remainingMs(status) / 60_000)} min remaining`;
-  }
-  return state?.excluded ? "Screen Time: removed from tracking" : "Screen Time: not tracked";
+async function refreshTab(tabId: number, shared = sharedStatus()): Promise<void> {
+  await presentTab(tabId, tabStates.get(tabId), snapshot(tabId, shared));
 }
 
-async function refreshBadgeText(status: StatusSnapshot): Promise<void> {
-  const text = badgeText(status);
-  if (text === presentedBadgeText) return;
-  presentedBadgeText = text;
-  await browser.action.setBadgeText({ text }).catch(ignore);
-}
-
-async function refreshTab(tabId: number): Promise<void> {
-  const state = tabStates.get(tabId);
-  const status = snapshot(tabId);
-  const tracked = state?.tracked === true;
-  const next: TabPresentation = {
-    icon: tracked || blockAll ? "icons/active.svg" : "icons/inactive.svg",
-    title: tabTitle(state, status),
-    badgeColor: tracked ? (status.blocked ? "#17231f" : "#d85832") : "#6b7570",
-    mode: overlayMode(status, tracked),
-  };
-  const previous = presented.get(tabId);
-  presented.set(tabId, next);
-
-  const updates: Promise<unknown>[] = [refreshBadgeText(status)];
-  if (next.icon !== previous?.icon)
-    updates.push(browser.action.setIcon({ tabId, path: next.icon }));
-  if (next.title !== previous?.title)
-    updates.push(browser.action.setTitle({ tabId, title: next.title }));
-  if (next.badgeColor !== previous?.badgeColor) {
-    updates.push(browser.action.setBadgeBackgroundColor({ tabId, color: next.badgeColor }));
-  }
-  if (!previous || next.mode !== previous.mode) {
-    const update: ContentUpdate = { type: "tracking-update", mode: next.mode, status };
-    updates.push(browser.tabs.sendMessage(tabId, update));
-  }
-  await Promise.all(updates.map((update) => update.catch(ignore)));
-}
-
-/** Forgets what a tab displays, e.g. after Firefox reset its toolbar values or it loaded a new document. */
+/** Reapplies everything a tab displays, e.g. after Firefox reset its toolbar values or it loaded a new document. */
 async function representTab(tabId: number): Promise<void> {
-  presented.delete(tabId);
+  forgetPresentation(tabId);
   await refreshTab(tabId);
 }
 
 async function refreshAllTabs(): Promise<void> {
-  await Promise.all([...tabStates.keys()].map(refreshTab));
+  const shared = sharedStatus();
+  await Promise.all([...tabStates.keys()].map((tabId) => refreshTab(tabId, shared)));
+}
+
+/** Stores a per-tab flag with the tab's session, so it survives restarts and tab restores. */
+async function persistTabFlag(tabId: number, key: string, value: boolean): Promise<void> {
+  await browser.sessions.setTabValue(tabId, key, value).catch(ignore);
 }
 
 async function checkpoint(): Promise<void> {
@@ -300,7 +250,7 @@ async function setTabState(
   const next = transitionTabState(previous, url, settings.trackedHostnames, typedNavigation);
   tabStates.set(tabId, next);
   if (previous?.inherited !== next.inherited) {
-    await browser.sessions.setTabValue(tabId, TAB_INHERITED_KEY, next.inherited).catch(ignore);
+    await persistTabFlag(tabId, TAB_INHERITED_KEY, next.inherited);
   }
 }
 
@@ -322,27 +272,23 @@ async function saveSettings(candidate: unknown): Promise<void> {
   );
 }
 
-async function setBlockAll(enabled: unknown): Promise<void> {
-  if (typeof enabled !== "boolean") throw new Error("Invalid block-everything request.");
+async function setBlockAll(enabled: boolean): Promise<void> {
   blockAll = enabled;
   await browser.storage.local.set({ [STORAGE_BLOCK_ALL_KEY]: blockAll });
 }
 
-async function setBlockTracked(enabled: unknown): Promise<void> {
-  if (typeof enabled !== "boolean") throw new Error("Invalid block-tracked request.");
+async function setBlockTracked(enabled: boolean): Promise<void> {
   blockTracked = enabled;
   await browser.storage.local.set({ [STORAGE_BLOCK_TRACKED_KEY]: blockTracked });
 }
 
-async function setTabExclusion(tabId: unknown, excluded: unknown): Promise<void> {
-  if (typeof tabId !== "number" || typeof excluded !== "boolean")
-    throw new Error("Invalid tab request.");
+async function setTabExclusion(tabId: number, excluded: boolean): Promise<void> {
   const tab = await browser.tabs.get(tabId);
   tabStates.set(
     tabId,
     setTabExcluded(tabStates.get(tabId), tab.url, settings.trackedHostnames, excluded),
   );
-  await browser.sessions.setTabValue(tabId, TAB_EXCLUDED_KEY, excluded).catch(ignore);
+  await persistTabFlag(tabId, TAB_EXCLUDED_KEY, excluded);
 }
 
 async function extend(durationMinutes: ExtendDuration): Promise<void> {
@@ -351,7 +297,7 @@ async function extend(durationMinutes: ExtendDuration): Promise<void> {
   if (durationMinutes === "rest-of-day") {
     usage = { ...usage, blockingDisabled: true };
   } else if (durationMinutes === 5 || durationMinutes === 15) {
-    usage = { ...usage, extraMs: usage.extraMs + durationMinutes * 60_000 };
+    usage = { ...usage, extraMs: usage.extraMs + durationMinutes * MS_PER_MINUTE };
   } else {
     throw new Error("Invalid extension duration.");
   }
@@ -364,6 +310,12 @@ async function resetToday(): Promise<void> {
   await saveUsage();
 }
 
+/** Requests cross a messaging boundary, so their fields are checked at runtime despite their static types. */
+function requireType<T>(value: unknown, type: "boolean" | "number", message: string): T {
+  if (typeof value !== type) throw new Error(message);
+  return value as T;
+}
+
 async function applyRequest(
   request: Exclude<ExtensionRequest, { type: "get-status" }>,
 ): Promise<void> {
@@ -371,11 +323,18 @@ async function applyRequest(
     case "save-settings":
       return saveSettings(request.settings);
     case "set-block-all":
-      return setBlockAll(request.enabled);
+      return setBlockAll(
+        requireType<boolean>(request.enabled, "boolean", "Invalid block-everything request."),
+      );
     case "set-block-tracked":
-      return setBlockTracked(request.enabled);
+      return setBlockTracked(
+        requireType<boolean>(request.enabled, "boolean", "Invalid block-tracked request."),
+      );
     case "set-tab-excluded":
-      return setTabExclusion(request.tabId, request.excluded);
+      return setTabExclusion(
+        requireType<number>(request.tabId, "number", "Invalid tab request."),
+        requireType<boolean>(request.excluded, "boolean", "Invalid tab request."),
+      );
     case "extend":
       return extend(request.durationMinutes);
     case "reset-today":
@@ -384,11 +343,9 @@ async function applyRequest(
 }
 
 function isExtensionRequest(message: unknown): message is ExtensionRequest {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    REQUEST_TYPES.has((message as { type?: unknown }).type)
-  );
+  if (typeof message !== "object" || message === null) return false;
+  const { type } = message as { type?: unknown };
+  return typeof type === "string" && Object.hasOwn(REQUEST_TYPES, type);
 }
 
 browser.alarms.create(CHECKPOINT_ALARM, { periodInMinutes: 0.25 });
@@ -408,8 +365,7 @@ browser.tabs.onCreated.addListener((tab) => {
       false,
     );
     tabStates.set(tab.id, state);
-    if (state.inherited)
-      await browser.sessions.setTabValue(tab.id, TAB_INHERITED_KEY, true).catch(ignore);
+    if (state.inherited) await persistTabFlag(tab.id, TAB_INHERITED_KEY, true);
     await refreshTab(tab.id);
   });
 });
@@ -453,7 +409,7 @@ browser.tabs.onRemoved.addListener((tabId) => {
   queueTask(() =>
     accounted(eventTime, () => {
       tabStates.delete(tabId);
-      presented.delete(tabId);
+      forgetPresentation(tabId);
       if (activeTabId === tabId) activeTabId = undefined;
     }),
   );
@@ -465,17 +421,15 @@ browser.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
     await accounted(eventTime, async () => {
       const previous = tabStates.get(removedTabId);
       tabStates.delete(removedTabId);
-      presented.delete(removedTabId);
+      forgetPresentation(removedTabId);
       const tab = await browser.tabs.get(addedTabId);
       tabStates.set(
         addedTabId,
         transitionTabState(previous, tab.url, settings.trackedHostnames, false),
       );
       if (activeTabId === removedTabId) activeTabId = addedTabId;
-      if (previous?.inherited)
-        await browser.sessions.setTabValue(addedTabId, TAB_INHERITED_KEY, true).catch(ignore);
-      if (previous?.excluded)
-        await browser.sessions.setTabValue(addedTabId, TAB_EXCLUDED_KEY, true).catch(ignore);
+      if (previous?.inherited) await persistTabFlag(addedTabId, TAB_INHERITED_KEY, true);
+      if (previous?.excluded) await persistTabFlag(addedTabId, TAB_EXCLUDED_KEY, true);
     });
     await representTab(addedTabId);
   });

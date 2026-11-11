@@ -1,3 +1,9 @@
+/** The hostname of an HTTP(S) URL without a trailing dot; `URL` has already lower-cased it. */
+function webHostname(url: URL): string | undefined {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
+  return url.hostname.replace(/\.$/, "");
+}
+
 export function normalizeHostname(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) throw new Error("A hostname cannot be empty.");
@@ -10,11 +16,12 @@ export function normalizeHostname(value: string): string {
     throw new Error(`Invalid URL or hostname: ${value}`);
   }
 
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
+  const hostname = webHostname(url);
+  if (hostname === undefined) {
     throw new Error(`Only HTTP and HTTPS URLs can be tracked: ${value}`);
   }
-  if (!url.hostname) throw new Error(`Invalid hostname: ${value}`);
-  return url.hostname.toLowerCase().replace(/\.$/, "");
+  if (!hostname) throw new Error(`Invalid hostname: ${value}`);
+  return hostname;
 }
 
 export function normalizeHostnames(values: string[]): string[] {
@@ -24,9 +31,7 @@ export function normalizeHostnames(values: string[]): string[] {
 export function hostnameFromUrl(value: string | undefined): string | undefined {
   if (!value) return undefined;
   try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") return undefined;
-    return url.hostname.toLowerCase().replace(/\.$/, "");
+    return webHostname(new URL(value));
   } catch {
     return undefined;
   }

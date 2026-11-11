@@ -1,3 +1,4 @@
+import { MS_PER_MINUTE } from "./constants.ts";
 import type { DailyUsage } from "./types.ts";
 
 export function localDayKey(timestamp: number): string {
@@ -36,11 +37,18 @@ export function addActiveInterval(usage: DailyUsage, startedAt: number, now: num
 }
 
 export function effectiveLimitMs(usage: DailyUsage, dailyLimitMinutes: number): number {
-  return dailyLimitMinutes * 60_000 + usage.extraMs;
+  return dailyLimitMinutes * MS_PER_MINUTE + usage.extraMs;
 }
 
-export function remainingMs(status: { effectiveLimitMs: number; elapsedMs: number }): number {
-  return Math.max(0, status.effectiveLimitMs - status.elapsedMs);
+type Allowance = { effectiveLimitMs: number; usage: Pick<DailyUsage, "elapsedMs"> };
+
+export function remainingMs(status: Allowance): number {
+  return Math.max(0, status.effectiveLimitMs - status.usage.elapsedMs);
+}
+
+/** Remaining time in whole minutes, rounded up so the last partial minute still shows as 1. */
+export function remainingMinutes(status: Allowance): number {
+  return Math.ceil(remainingMs(status) / MS_PER_MINUTE);
 }
 
 export function isDailyBlocked(usage: DailyUsage, dailyLimitMinutes: number): boolean {
