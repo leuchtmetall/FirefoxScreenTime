@@ -47,6 +47,7 @@ Alternatively, build with `bun run build`, open `about:debugging#/runtime/this-f
 - A new tab opened by a tracked tab inherits tracking, including across ordinary navigations.
 - Typing a non-tracked URL into an inherited tab removes its inherited tracking.
 - The popup's **Stop tracking this tab** button removes the current tab from tracking for the rest of its lifetime (including later navigations to tracked sites); **Track this tab again** undoes it.
+- On an untracked tab, the same button reads **Track this tab** and starts tracking it whatever its URL. Such a tab behaves like one opened from a tracked tab: it stays tracked across ordinary navigations until a non-tracked URL is typed into it.
 - At the limit, an opaque overlay blocks interaction and visibility without replacing or unloading the document.
 - The overlay can add 5 or 15 minutes, or disable blocking until local midnight.
 - The popup's **Block everything** button covers every web page, tracked or not, with an overlay. In this mode the daily timer is paused and the regular-mode state (used time, extensions) is left untouched. **Back to regular mode** turns it off. The mode stays on across browser restarts until you turn it off.

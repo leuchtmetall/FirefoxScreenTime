@@ -38,6 +38,7 @@ export interface StatusSnapshot {
 export type ExtensionRequest =
   | { type: "get-status"; tabId?: number }
   | { type: "set-tab-excluded"; tabId: number; excluded: boolean }
+  | { type: "track-tab"; tabId: number }
   | { type: "save-settings"; settings: Settings }
   | { type: "set-block-all"; enabled: boolean; tabId?: number }
   | { type: "set-block-tracked"; enabled: boolean; tabId?: number }

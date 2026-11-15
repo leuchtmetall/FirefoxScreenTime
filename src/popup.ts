@@ -63,11 +63,13 @@ function tabStateLabel(status: StatusSnapshot): string {
 function renderTabState(status: StatusSnapshot): void {
   stateLabel.textContent = tabStateLabel(status);
   stateLabel.dataset["tracked"] = String(status.currentTabTracked);
-  toggleTab.hidden =
-    currentTabId === undefined || (!status.currentTabTracked && !status.currentTabExcluded);
-  toggleTab.textContent = status.currentTabExcluded
-    ? "Track this tab again"
-    : "Stop tracking this tab";
+  toggleTab.hidden = currentTabId === undefined;
+  toggleTab.textContent = toggleTabLabel(status);
+}
+
+function toggleTabLabel(status: StatusSnapshot): string {
+  if (status.currentTabTracked) return "Stop tracking this tab";
+  return status.currentTabExcluded ? "Track this tab again" : "Track this tab";
 }
 
 function renderBlockToggles(status: StatusSnapshot): void {
@@ -175,11 +177,13 @@ form.addEventListener("submit", async (event) => {
 
 toggleTab.addEventListener("click", () => {
   if (currentTabId === undefined || !lastStatus) return;
-  void runAction(toggleTab, {
-    type: "set-tab-excluded",
-    tabId: currentTabId,
-    excluded: !lastStatus.currentTabExcluded,
-  });
+  const { currentTabTracked, currentTabExcluded } = lastStatus;
+  void runAction(
+    toggleTab,
+    currentTabTracked || currentTabExcluded
+      ? { type: "set-tab-excluded", tabId: currentTabId, excluded: !currentTabExcluded }
+      : { type: "track-tab", tabId: currentTabId },
+  );
 });
 
 toggleBlockAll.addEventListener("click", () => {

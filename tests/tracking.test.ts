@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { overlayMode } from "../src/shared/overlay.ts";
-import { setTabExcluded, transitionTabState } from "../src/shared/tracking.ts";
+import { setTabExcluded, trackTabManually, transitionTabState } from "../src/shared/tracking.ts";
 
 const configured = ["example.com"];
 
@@ -58,6 +58,18 @@ describe("tab tracking transitions", () => {
       excluded: true,
       tracked: false,
     });
+  });
+
+  test("a manually tracked tab behaves like an inherited one", () => {
+    const manual = trackTabManually();
+    expect(manual.tracked).toBe(true);
+    expect(transitionTabState(manual, "https://another.test", configured, false).tracked).toBe(
+      true,
+    );
+    expect(transitionTabState(manual, "https://another.test", configured, true).tracked).toBe(
+      false,
+    );
+    expect(setTabExcluded(manual, "https://another.test", configured, true).tracked).toBe(false);
   });
 
   test("re-including a tab restores direct and inherited tracking", () => {

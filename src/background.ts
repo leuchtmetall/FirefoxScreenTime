@@ -21,7 +21,7 @@ import {
   rollUsageToNow,
 } from "./shared/daily.ts";
 import { validateSettings } from "./shared/settings.ts";
-import { setTabExcluded, transitionTabState } from "./shared/tracking.ts";
+import { setTabExcluded, trackTabManually, transitionTabState } from "./shared/tracking.ts";
 import type {
   DailyUsage,
   ExtendDuration,
@@ -39,6 +39,7 @@ const REQUEST_TYPES: Record<ExtensionRequest["type"], true> = {
   "save-settings": true,
   extend: true,
   "set-tab-excluded": true,
+  "track-tab": true,
   "set-block-all": true,
   "set-block-tracked": true,
   "reset-today": true,
@@ -291,6 +292,15 @@ async function setTabExclusion(tabId: number, excluded: boolean): Promise<void> 
   await persistTabFlag(tabId, TAB_EXCLUDED_KEY, excluded);
 }
 
+/** Starts tracking a tab at the user's request, whatever its URL. */
+async function trackTab(tabId: number): Promise<void> {
+  tabStates.set(tabId, trackTabManually());
+  await Promise.all([
+    persistTabFlag(tabId, TAB_INHERITED_KEY, true),
+    persistTabFlag(tabId, TAB_EXCLUDED_KEY, false),
+  ]);
+}
+
 async function extend(durationMinutes: ExtendDuration): Promise<void> {
   if (blockAll) throw new Error("Turn off block-everything mode first.");
   if (blockTracked) throw new Error("Turn off block-tracked mode first.");
@@ -335,6 +345,8 @@ async function applyRequest(
         requireType<number>(request.tabId, "number", "Invalid tab request."),
         requireType<boolean>(request.excluded, "boolean", "Invalid tab request."),
       );
+    case "track-tab":
+      return trackTab(requireType<number>(request.tabId, "number", "Invalid tab request."));
     case "extend":
       return extend(request.durationMinutes);
     case "reset-today":
