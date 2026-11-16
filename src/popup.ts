@@ -16,6 +16,7 @@ const startDayPausedInput = requiredElement<HTMLInputElement>("start-day-paused"
 const hostnamesInput = requiredElement<HTMLTextAreaElement>("hostnames");
 const form = requiredElement<HTMLFormElement>("settings-form");
 const feedback = requiredElement("feedback");
+const saveButton = requiredElement<HTMLButtonElement>("save-settings");
 const toggleTab = requiredElement<HTMLButtonElement>("toggle-tab");
 const toggleBlockAll = requiredElement<HTMLButtonElement>("toggle-block-all");
 const toggleBlockTracked = requiredElement<HTMLButtonElement>("toggle-block-tracked");
@@ -24,6 +25,7 @@ let currentTabId: number | undefined;
 /** The last snapshot from the background and when it arrived, for ticking the timer between polls. */
 let lastStatus: StatusSnapshot | undefined;
 let lastStatusAt = 0;
+let saving = false;
 
 function requiredElement<T extends HTMLElement = HTMLElement>(id: string): T {
   const element = document.getElementById(id);
@@ -90,6 +92,37 @@ function populateForm({ settings }: StatusSnapshot): void {
   hostnamesInput.value = settings.trackedHostnames.join("\n");
   showBadgeInput.checked = settings.showBadge;
   startDayPausedInput.checked = settings.startDayPaused;
+  updateSaveButton();
+}
+
+function readForm(): Settings {
+  return {
+    dailyLimitMinutes: Number(limitInput.value),
+    strictMode: limitModeInput.value === "strict",
+    showBadge: showBadgeInput.checked,
+    startDayPaused: startDayPausedInput.checked,
+    trackedHostnames: hostnamesInput.value
+      .split(/[,\n]/)
+      .map((value) => value.trim())
+      .filter(Boolean),
+  };
+}
+
+/** Whether the form differs from the saved settings. */
+function formChanged(saved: Settings): boolean {
+  const form = readForm();
+  return (
+    form.dailyLimitMinutes !== saved.dailyLimitMinutes ||
+    form.strictMode !== saved.strictMode ||
+    form.showBadge !== saved.showBadge ||
+    form.startDayPaused !== saved.startDayPaused ||
+    form.trackedHostnames.join("\n") !== saved.trackedHostnames.join("\n")
+  );
+}
+
+/** Saving is only possible when there is something to save and no save is under way. */
+function updateSaveButton(): void {
+  saveButton.disabled = saving || !lastStatus || !formChanged(lastStatus.settings);
 }
 
 function render(status: StatusSnapshot): void {
@@ -98,6 +131,7 @@ function render(status: StatusSnapshot): void {
   renderTimer(status);
   renderTabState(status);
   renderBlockToggles(status);
+  updateSaveButton();
 }
 
 /**
@@ -158,23 +192,24 @@ async function runAction(
   }
 }
 
+form.addEventListener("input", updateSaveButton);
+form.addEventListener("change", updateSaveButton);
+
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  if (saveButton.disabled) return;
   feedback.textContent = "Saving...";
-  const settings: Settings = {
-    dailyLimitMinutes: Number(limitInput.value),
-    strictMode: limitModeInput.value === "strict",
-    showBadge: showBadgeInput.checked,
-    startDayPaused: startDayPausedInput.checked,
-    trackedHostnames: hostnamesInput.value
-      .split(/[,\n]/)
-      .map((value) => value.trim())
-      .filter(Boolean),
-  };
-  const status = handleResponse(await request({ type: "save-settings", settings }));
-  if (status) {
-    populateForm(status);
-    feedback.textContent = "Saved";
+  saving = true;
+  updateSaveButton();
+  try {
+    const status = handleResponse(await request({ type: "save-settings", settings: readForm() }));
+    if (status) {
+      populateForm(status);
+      feedback.textContent = "Saved";
+    }
+  } finally {
+    saving = false;
+    updateSaveButton();
   }
 });
 
