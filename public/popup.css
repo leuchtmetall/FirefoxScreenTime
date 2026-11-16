@@ -11,7 +11,7 @@
 
 body {
   margin: 0;
-  min-width: 352px;
+  min-width: 358px;
 }
 
 main {
@@ -202,7 +202,7 @@ label {
   font-size: 12px;
 }
 select {
-  padding: 9px 4px;
+  padding: 9px 4px 9px 10px;
 }
 input,
 select,
