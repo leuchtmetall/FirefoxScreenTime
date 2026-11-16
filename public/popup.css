@@ -260,10 +260,11 @@ textarea:focus {
 .form-footer {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 8px;
   min-height: 34px;
 }
 #feedback {
+  margin-right: auto;
   color: #8e4e36;
   font-size: 11px;
 }

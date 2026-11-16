@@ -17,6 +17,7 @@ const hostnamesInput = requiredElement<HTMLTextAreaElement>("hostnames");
 const form = requiredElement<HTMLFormElement>("settings-form");
 const feedback = requiredElement("feedback");
 const saveButton = requiredElement<HTMLButtonElement>("save-settings");
+const resetSettings = requiredElement<HTMLButtonElement>("reset-settings");
 const toggleTab = requiredElement<HTMLButtonElement>("toggle-tab");
 const toggleBlockAll = requiredElement<HTMLButtonElement>("toggle-block-all");
 const toggleBlockTracked = requiredElement<HTMLButtonElement>("toggle-block-tracked");
@@ -92,7 +93,7 @@ function populateForm({ settings }: StatusSnapshot): void {
   hostnamesInput.value = settings.trackedHostnames.join("\n");
   showBadgeInput.checked = settings.showBadge;
   startDayPausedInput.checked = settings.startDayPaused;
-  updateSaveButton();
+  updateFormButtons();
 }
 
 function readForm(): Settings {
@@ -120,9 +121,11 @@ function formChanged(saved: Settings): boolean {
   );
 }
 
-/** Saving is only possible when there is something to save and no save is under way. */
-function updateSaveButton(): void {
-  saveButton.disabled = saving || !lastStatus || !formChanged(lastStatus.settings);
+/** Saving and resetting are only possible when the form has changes and no save is under way. */
+function updateFormButtons(): void {
+  const changed = !saving && lastStatus !== undefined && formChanged(lastStatus.settings);
+  saveButton.disabled = !changed;
+  resetSettings.hidden = !changed;
 }
 
 function render(status: StatusSnapshot): void {
@@ -131,7 +134,7 @@ function render(status: StatusSnapshot): void {
   renderTimer(status);
   renderTabState(status);
   renderBlockToggles(status);
-  updateSaveButton();
+  updateFormButtons();
 }
 
 /**
@@ -192,15 +195,15 @@ async function runAction(
   }
 }
 
-form.addEventListener("input", updateSaveButton);
-form.addEventListener("change", updateSaveButton);
+form.addEventListener("input", updateFormButtons);
+form.addEventListener("change", updateFormButtons);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (saveButton.disabled) return;
   feedback.textContent = "Saving...";
   saving = true;
-  updateSaveButton();
+  updateFormButtons();
   try {
     const status = handleResponse(await request({ type: "save-settings", settings: readForm() }));
     if (status) {
@@ -209,8 +212,14 @@ form.addEventListener("submit", async (event) => {
     }
   } finally {
     saving = false;
-    updateSaveButton();
+    updateFormButtons();
   }
+});
+
+resetSettings.addEventListener("click", () => {
+  if (!lastStatus) return;
+  populateForm(lastStatus);
+  feedback.textContent = "";
 });
 
 toggleTab.addEventListener("click", () => {
