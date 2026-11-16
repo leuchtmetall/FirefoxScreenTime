@@ -11,7 +11,7 @@
 
 body {
   margin: 0;
-  min-width: 348px;
+  min-width: 352px;
 }
 
 main {
@@ -187,12 +187,14 @@ label {
 }
 .allowance-grid {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto auto 1fr;
   column-gap: 8px;
   align-items: center;
   margin-bottom: 12px;
 }
 .limit-row {
+  /* Starts the second grid row, beneath the labels. */
+  grid-column: 1;
   display: flex;
   align-items: center;
   gap: 6px;
