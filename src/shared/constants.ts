@@ -14,4 +14,5 @@ export const DEFAULT_SETTINGS: Settings = {
   dailyLimitMinutes: 30,
   showBadge: true,
   startDayPaused: false,
+  strictMode: false,
 };

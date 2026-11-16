@@ -11,7 +11,7 @@
 
 body {
   margin: 0;
-  min-width: 340px;
+  min-width: 348px;
 }
 
 main {
@@ -185,15 +185,25 @@ label {
   font-size: 12px;
   font-weight: 800;
 }
+.allowance-grid {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  column-gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
 .limit-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 6px;
   color: #65716b;
   font-size: 12px;
 }
+select {
+  padding: 9px 4px;
+}
 input,
+select,
 textarea {
   border: 1px solid #c5beb1;
   border-radius: 9px;
@@ -207,7 +217,7 @@ textarea {
     sans-serif;
 }
 input {
-  width: 82px;
+  width: 68px;
   padding: 9px 10px;
 }
 label.checkbox {
@@ -234,6 +244,7 @@ textarea {
   line-height: 1.45;
 }
 input:focus,
+select:focus,
 textarea:focus {
   border-color: #d85832;
   outline: 2px solid rgb(216 88 50 / 16%);

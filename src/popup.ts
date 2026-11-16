@@ -10,6 +10,7 @@ const elapsed = requiredElement("elapsed");
 const remaining = requiredElement("remaining");
 const stateLabel = requiredElement("state-label");
 const limitInput = requiredElement<HTMLInputElement>("daily-limit");
+const limitModeInput = requiredElement<HTMLSelectElement>("limit-mode");
 const showBadgeInput = requiredElement<HTMLInputElement>("show-badge");
 const startDayPausedInput = requiredElement<HTMLInputElement>("start-day-paused");
 const hostnamesInput = requiredElement<HTMLTextAreaElement>("hostnames");
@@ -85,6 +86,7 @@ function renderBlockToggles(status: StatusSnapshot): void {
 
 function populateForm({ settings }: StatusSnapshot): void {
   limitInput.value = String(settings.dailyLimitMinutes);
+  limitModeInput.value = settings.strictMode ? "strict" : "regular";
   hostnamesInput.value = settings.trackedHostnames.join("\n");
   showBadgeInput.checked = settings.showBadge;
   startDayPausedInput.checked = settings.startDayPaused;
@@ -161,6 +163,7 @@ form.addEventListener("submit", async (event) => {
   feedback.textContent = "Saving...";
   const settings: Settings = {
     dailyLimitMinutes: Number(limitInput.value),
+    strictMode: limitModeInput.value === "strict",
     showBadge: showBadgeInput.checked,
     startDayPaused: startDayPausedInput.checked,
     trackedHostnames: hostnamesInput.value

@@ -12,12 +12,14 @@ describe("validateSettings", () => {
         trackedHostnames: ["https://B.example/x", "a.example", "b.example"],
         showBadge: false,
         startDayPaused: true,
+        strictMode: true,
       }),
     ).toEqual({
       dailyLimitMinutes: 45,
       trackedHostnames: ["a.example", "b.example"],
       showBadge: false,
       startDayPaused: true,
+      strictMode: true,
     });
   });
 
@@ -29,6 +31,7 @@ describe("validateSettings", () => {
     });
     expect(settings.showBadge).toBe(DEFAULT_SETTINGS.showBadge);
     expect(settings.startDayPaused).toBe(DEFAULT_SETTINGS.startDayPaused);
+    expect(settings.strictMode).toBe(false);
   });
 
   test("rejects limits outside 1 to 1440 whole minutes", () => {

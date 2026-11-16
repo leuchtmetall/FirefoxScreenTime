@@ -6,8 +6,8 @@ const MAX_DAILY_LIMIT_MINUTES = 1_440;
 
 /** Checks and normalizes settings from storage or a request; throws a user-facing error if invalid. */
 export function validateSettings(candidate: unknown): Settings {
-  const { dailyLimitMinutes, trackedHostnames, showBadge, startDayPaused } = (candidate ??
-    {}) as Partial<Record<keyof Settings, unknown>>;
+  const { dailyLimitMinutes, trackedHostnames, showBadge, startDayPaused, strictMode } =
+    (candidate ?? {}) as Partial<Record<keyof Settings, unknown>>;
   const limit = Number(dailyLimitMinutes);
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_DAILY_LIMIT_MINUTES) {
     throw new Error(
@@ -21,5 +21,6 @@ export function validateSettings(candidate: unknown): Settings {
     showBadge: typeof showBadge === "boolean" ? showBadge : DEFAULT_SETTINGS.showBadge,
     startDayPaused:
       typeof startDayPaused === "boolean" ? startDayPaused : DEFAULT_SETTINGS.startDayPaused,
+    strictMode: typeof strictMode === "boolean" ? strictMode : DEFAULT_SETTINGS.strictMode,
   };
 }

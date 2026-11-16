@@ -1,5 +1,6 @@
 import * as styles from "./overlay-styles.ts";
 import { MS_PER_MINUTE } from "./shared/constants.ts";
+import { allowedExtensions } from "./shared/daily.ts";
 import { overlayMode } from "./shared/overlay.ts";
 import type {
   ContentUpdate,
@@ -79,19 +80,31 @@ function buildPausedView(eyebrow: string, title: string, message: string): Overl
 }
 
 function buildTimeUpView(status: StatusSnapshot): OverlayView {
+  const allowed = allowedExtensions(status.settings.strictMode, status.usage);
   const extensions = (
     [
       ["Add 5 minutes", 5, styles.button],
       ["Add 15 minutes", 15, styles.button],
       ["Allow for today", "rest-of-day", styles.primaryButton],
     ] as const
-  ).map(([label, durationMinutes, buttonStyles]) => {
-    const button = document.createElement("button");
-    button.textContent = label;
-    styles.applyButtonStyle(button, buttonStyles);
-    return { button, durationMinutes };
-  });
-  const note = createElement("div", styles.note, "Your allowance resets at local midnight.");
+  )
+    .filter(([, durationMinutes]) => allowed.includes(durationMinutes))
+    .map(([label, durationMinutes, buttonStyles]) => {
+      const button = document.createElement("button");
+      button.textContent = label;
+      styles.applyButtonStyle(button, buttonStyles);
+      return { button, durationMinutes };
+    });
+  const resets = "Your allowance resets at local midnight.";
+  const note = createElement(
+    "div",
+    styles.note,
+    status.settings.strictMode
+      ? extensions.length > 0
+        ? `Strict mode: this is today's only extension. ${resets}`
+        : `Strict mode: today's extension is used. ${resets}`
+      : resets,
+  );
   const root = createDialog(
     "Daily pause",
     "Time is up.",
@@ -102,7 +115,9 @@ function buildTimeUpView(status: StatusSnapshot): OverlayView {
       createElement("span", styles.time, formatDuration(status.usage.elapsedMs)),
       ` of tracked time today. ${PAGE_STILL_HERE}`,
     ),
-    createElement("div", styles.actions, ...extensions.map(({ button }) => button)),
+    ...(extensions.length > 0
+      ? [createElement("div", styles.actions, ...extensions.map(({ button }) => button))]
+      : []),
     note,
   );
   return { root, note, extensions };

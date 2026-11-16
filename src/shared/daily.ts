@@ -1,5 +1,5 @@
 import { MS_PER_MINUTE } from "./constants.ts";
-import type { DailyUsage } from "./types.ts";
+import type { DailyUsage, ExtendDuration } from "./types.ts";
 
 export function localDayKey(timestamp: number): string {
   const date = new Date(timestamp);
@@ -38,6 +38,18 @@ export function addActiveInterval(usage: DailyUsage, startedAt: number, now: num
 
 export function effectiveLimitMs(usage: DailyUsage, dailyLimitMinutes: number): number {
   return dailyLimitMinutes * MS_PER_MINUTE + usage.extraMs;
+}
+
+/**
+ * The extensions that may be granted once the limit is reached. Strict mode allows a single
+ * 5-minute extension per day; any extra time already granted today counts as that extension.
+ */
+export function allowedExtensions(
+  strictMode: boolean,
+  usage: Pick<DailyUsage, "extraMs">,
+): ExtendDuration[] {
+  if (!strictMode) return [5, 15, "rest-of-day"];
+  return usage.extraMs > 0 ? [] : [5];
 }
 
 type Allowance = { effectiveLimitMs: number; usage: Pick<DailyUsage, "elapsedMs"> };

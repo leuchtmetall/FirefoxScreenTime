@@ -5,6 +5,8 @@ export interface Settings {
   showBadge: boolean;
   /** Turn on block-tracked mode at the start of every day, so tracked sites must be un-paused first. */
   startDayPaused: boolean;
+  /** Strict mode: the only way past the daily limit is a single 5-minute extension per day. */
+  strictMode: boolean;
 }
 
 export interface DailyUsage {

@@ -15,6 +15,7 @@ import {
 } from "./shared/constants.ts";
 import {
   addActiveInterval,
+  allowedExtensions,
   effectiveLimitMs,
   freshDailyUsage,
   isDailyBlocked,
@@ -267,6 +268,11 @@ async function selectActiveTab(windowId: number): Promise<void> {
 async function saveSettings(candidate: unknown): Promise<void> {
   settings = validateSettings(candidate);
   await browser.storage.local.set({ [STORAGE_SETTINGS_KEY]: settings });
+  // Strict mode has no "allow for today", so one granted earlier in regular mode ends here.
+  if (settings.strictMode && usage.blockingDisabled) {
+    usage = { ...usage, blockingDisabled: false };
+    await saveUsage();
+  }
   const tabs = await browser.tabs.query({});
   await Promise.all(
     tabs.map((tab) => (tab.id === undefined ? undefined : setTabState(tab.id, tab.url, false))),
@@ -304,13 +310,17 @@ async function trackTab(tabId: number): Promise<void> {
 async function extend(durationMinutes: ExtendDuration): Promise<void> {
   if (blockAll) throw new Error("Turn off block-everything mode first.");
   if (blockTracked) throw new Error("Turn off block-tracked mode first.");
-  if (durationMinutes === "rest-of-day") {
-    usage = { ...usage, blockingDisabled: true };
-  } else if (durationMinutes === 5 || durationMinutes === 15) {
-    usage = { ...usage, extraMs: usage.extraMs + durationMinutes * MS_PER_MINUTE };
-  } else {
-    throw new Error("Invalid extension duration.");
+  if (!allowedExtensions(settings.strictMode, usage).includes(durationMinutes)) {
+    throw new Error(
+      settings.strictMode
+        ? "Strict mode allows a single 5 minute extension per day."
+        : "Invalid extension duration.",
+    );
   }
+  usage =
+    durationMinutes === "rest-of-day"
+      ? { ...usage, blockingDisabled: true }
+      : { ...usage, extraMs: usage.extraMs + durationMinutes * MS_PER_MINUTE };
   await saveUsage();
 }
 

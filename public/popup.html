@@ -52,19 +52,30 @@
       </div>
 
       <form id="settings-form">
-        <label for="daily-limit">Daily allowance</label>
-        <div class="limit-row">
-          <input
-            id="daily-limit"
-            name="daily-limit"
-            type="number"
-            min="1"
-            max="1440"
-            step="1"
-            required
-          />
-          <span>minutes</span>
-          <button id="reset-today" class="secondary reset" type="button">Reset today</button>
+        <div class="allowance-grid">
+          <label for="daily-limit">Daily allowance</label>
+          <label for="limit-mode">Mode</label>
+          <div class="limit-row">
+            <input
+              id="daily-limit"
+              name="daily-limit"
+              type="number"
+              min="1"
+              max="1440"
+              step="1"
+              required
+            />
+            <span>minutes</span>
+            <button id="reset-today" class="secondary reset" type="button">Reset today</button>
+          </div>
+          <select
+            id="limit-mode"
+            name="limit-mode"
+            title="Strict allows a single 5 minute extension per day"
+          >
+            <option value="regular">Regular</option>
+            <option value="strict">Strict</option>
+          </select>
         </div>
 
         <label class="checkbox" for="show-badge">

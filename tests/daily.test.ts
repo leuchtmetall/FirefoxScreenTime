@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   addActiveInterval,
+  allowedExtensions,
   effectiveLimitMs,
   freshDailyUsage,
   isDailyBlocked,
@@ -40,6 +41,12 @@ describe("daily accounting", () => {
     expect(effectiveLimitMs(usage, 30)).toBe(35 * 60_000);
     expect(isDailyBlocked(usage, 30)).toBe(true);
     expect(isDailyBlocked({ ...usage, blockingDisabled: true }, 30)).toBe(false);
+  });
+
+  test("strict mode allows a single 5-minute extension per day", () => {
+    expect(allowedExtensions(false, { extraMs: 20 * 60_000 })).toEqual([5, 15, "rest-of-day"]);
+    expect(allowedExtensions(true, { extraMs: 0 })).toEqual([5]);
+    expect(allowedExtensions(true, { extraMs: 5 * 60_000 })).toEqual([]);
   });
 
   test("uses a stable local date key", () => {
