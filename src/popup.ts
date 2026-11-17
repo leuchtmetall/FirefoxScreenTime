@@ -195,8 +195,16 @@ async function runAction(
   }
 }
 
-form.addEventListener("input", updateFormButtons);
-form.addEventListener("change", updateFormButtons);
+/** After an edit: refreshes the buttons, wiggling the save button when the edit just enabled it. */
+function handleEdit(): void {
+  const wasDisabled = saveButton.disabled;
+  updateFormButtons();
+  if (wasDisabled && !saveButton.disabled) saveButton.classList.add("wiggle");
+}
+
+form.addEventListener("input", handleEdit);
+form.addEventListener("change", handleEdit);
+saveButton.addEventListener("animationend", () => saveButton.classList.remove("wiggle"));
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();

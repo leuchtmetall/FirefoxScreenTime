@@ -304,3 +304,22 @@ button:disabled {
   opacity: 0.6;
   cursor: default;
 }
+@keyframes wiggle {
+  20% {
+    transform: rotate(-5deg);
+  }
+  40% {
+    transform: rotate(4deg);
+  }
+  60% {
+    transform: rotate(-3deg);
+  }
+  80% {
+    transform: rotate(2deg);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  button.wiggle {
+    animation: wiggle 0.38s ease-in-out;
+  }
+}
