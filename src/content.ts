@@ -1,3 +1,4 @@
+import { freezeTitle, unfreezeTitle } from "./content/title-freeze.ts";
 import * as styles from "./overlay-styles.ts";
 import { MS_PER_MINUTE } from "./shared/constants.ts";
 import { allowedExtensions } from "./shared/daily.ts";
@@ -151,13 +152,19 @@ function preventInteraction(event: Event): void {
   event.stopImmediatePropagation();
 }
 
-function removeOverlay(): void {
+/** Takes the overlay off the page, leaving the title frozen for an overlay about to replace it. */
+function detachOverlay(): void {
   shownViewKey = undefined;
   overlayObserver?.disconnect();
   overlayObserver = undefined;
   overlayHost?.remove();
   overlayHost = undefined;
   for (const type of BLOCKED_EVENTS) window.removeEventListener(type, preventInteraction, true);
+}
+
+function removeOverlay(): void {
+  detachOverlay();
+  unfreezeTitle();
 }
 
 /** Makes the time-up buttons request more time, removing the overlay once the tab is no longer blocked. */
@@ -187,7 +194,8 @@ function wireExtensionButtons(view: OverlayView): void {
 function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
   const viewKey = overlayViewKey(mode, status);
   if (overlayHost?.isConnected && shownViewKey === viewKey) return;
-  removeOverlay();
+  detachOverlay();
+  freezeTitle();
   shownViewKey = viewKey;
   const host = document.createElement("div");
   host.setAttribute("data-firefox-screen-time", "blocked");
