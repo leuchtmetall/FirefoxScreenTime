@@ -295,8 +295,8 @@ button.secondary {
   font-size: 11px;
   white-space: nowrap;
 }
-button.secondary:hover,
-button.secondary:focus-visible {
+button.secondary:not(:disabled):hover,
+button.secondary:not(:disabled):focus-visible {
   border-color: #d85832;
   background: #fbf8f0;
 }

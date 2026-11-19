@@ -290,6 +290,9 @@ async function setBlockTracked(enabled: boolean): Promise<void> {
 }
 
 async function setTabExclusion(tabId: number, excluded: boolean): Promise<void> {
+  if (excluded && settings.strictMode) {
+    throw new Error("Strict mode doesn't allow removing tabs from tracking.");
+  }
   const tab = await browser.tabs.get(tabId);
   tabStates.set(
     tabId,
@@ -326,6 +329,7 @@ async function extend(durationMinutes: ExtendDuration): Promise<void> {
 
 /** Starts today over: clears used time and any extensions granted today. */
 async function resetToday(): Promise<void> {
+  if (settings.strictMode) throw new Error("Strict mode doesn't allow resetting today's usage.");
   usage = freshDailyUsage(Date.now());
   await saveUsage();
 }
