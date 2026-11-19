@@ -1,20 +1,16 @@
 import { badgeText } from "../shared/badge.ts";
 import { colors } from "../shared/colors.ts";
 import { remainingMinutes } from "../shared/daily.ts";
-import { overlayMode } from "../shared/overlay.ts";
-import type {
-  ContentUpdate,
-  OverlayMode,
-  StatusSnapshot,
-  TabTrackingState,
-} from "../shared/types.ts";
+import { overlayMode, overlayViewKey } from "../shared/overlay.ts";
+import type { ContentUpdate, StatusSnapshot, TabTrackingState } from "../shared/types.ts";
 
 /** What each tab last displayed, so refreshes only call the browser APIs for values that changed. */
 interface TabPresentation {
   icon: string;
   title: string;
   badgeColor: string;
-  mode: OverlayMode | undefined;
+  /** Changes whenever the overlay's content does, such as switching between regular and strict mode. */
+  overlayView: string | undefined;
 }
 
 const presented = new Map<number, TabPresentation>();
@@ -56,11 +52,12 @@ export async function presentTab(
   status: StatusSnapshot,
 ): Promise<void> {
   const tracked = state?.tracked === true;
+  const mode = overlayMode(status, tracked);
   const next: TabPresentation = {
     icon: tracked || status.blockAll ? "icons/active.svg" : "icons/inactive.svg",
     title: tabTitle(state, status),
     badgeColor: badgeColor(tracked, status),
-    mode: overlayMode(status, tracked),
+    overlayView: overlayViewKey(mode, status),
   };
   const previous = presented.get(tabId);
   presented.set(tabId, next);
@@ -73,8 +70,8 @@ export async function presentTab(
   if (next.badgeColor !== previous?.badgeColor) {
     updates.push(browser.action.setBadgeBackgroundColor({ tabId, color: next.badgeColor }));
   }
-  if (!previous || next.mode !== previous.mode) {
-    const update: ContentUpdate = { type: "tracking-update", mode: next.mode, status };
+  if (!previous || next.overlayView !== previous.overlayView) {
+    const update: ContentUpdate = { type: "tracking-update", mode, status };
     updates.push(browser.tabs.sendMessage(tabId, update));
   }
   await Promise.all(updates.map((update) => update.catch(ignore)));

@@ -1,7 +1,7 @@
 import * as styles from "./overlay-styles.ts";
 import { MS_PER_MINUTE } from "./shared/constants.ts";
 import { allowedExtensions } from "./shared/daily.ts";
-import { overlayMode } from "./shared/overlay.ts";
+import { overlayMode, overlayViewKey } from "./shared/overlay.ts";
 import type {
   ContentUpdate,
   ExtendDuration,
@@ -13,7 +13,8 @@ import type {
 
 let overlayHost: HTMLDivElement | undefined;
 let overlayObserver: MutationObserver | undefined;
-let shownMode: OverlayMode | undefined;
+/** The `overlayViewKey` of the overlay on screen, so an update only rebuilds it when its content changes. */
+let shownViewKey: string | undefined;
 
 /** Input events swallowed while the overlay is up, so the covered page cannot be scrolled or operated. */
 const BLOCKED_EVENTS = ["wheel", "touchmove", "keydown"] as const;
@@ -151,7 +152,7 @@ function preventInteraction(event: Event): void {
 }
 
 function removeOverlay(): void {
-  shownMode = undefined;
+  shownViewKey = undefined;
   overlayObserver?.disconnect();
   overlayObserver = undefined;
   overlayHost?.remove();
@@ -184,9 +185,10 @@ function wireExtensionButtons(view: OverlayView): void {
 }
 
 function showOverlay(status: StatusSnapshot, mode: OverlayMode): void {
-  if (overlayHost?.isConnected && shownMode === mode) return;
+  const viewKey = overlayViewKey(mode, status);
+  if (overlayHost?.isConnected && shownViewKey === viewKey) return;
   removeOverlay();
-  shownMode = mode;
+  shownViewKey = viewKey;
   const host = document.createElement("div");
   host.setAttribute("data-firefox-screen-time", "blocked");
   styles.applyStyle(host, styles.host);
