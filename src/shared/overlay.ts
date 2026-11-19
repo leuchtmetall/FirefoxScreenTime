@@ -30,3 +30,15 @@ export function overlayViewKey(
   const allowed = allowedExtensions(strict, status.usage);
   return `limit:${strict ? "strict" : "regular"}:${allowed.join(",")}`;
 }
+
+/**
+ * Reload shortcuts (F5, Ctrl/Cmd+R, each optionally with Shift) keep their browser default while
+ * the overlay swallows keys, since reloading cannot operate the covered page.
+ */
+export function isReloadShortcut(
+  event: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "altKey">,
+): boolean {
+  if (event.altKey) return false;
+  if (event.key === "F5") return true;
+  return (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r";
+}

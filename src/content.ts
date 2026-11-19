@@ -2,7 +2,7 @@ import { freezeTitle, unfreezeTitle } from "./content/title-freeze.ts";
 import * as styles from "./overlay-styles.ts";
 import { MS_PER_MINUTE } from "./shared/constants.ts";
 import { allowedExtensions } from "./shared/daily.ts";
-import { overlayMode, overlayViewKey } from "./shared/overlay.ts";
+import { isReloadShortcut, overlayMode, overlayViewKey } from "./shared/overlay.ts";
 import type {
   ContentUpdate,
   ExtendDuration,
@@ -148,8 +148,10 @@ function preventInteraction(event: Event): void {
   if (!overlayHost) return;
   const path = event.composedPath();
   if (path.includes(overlayHost)) return;
-  event.preventDefault();
+  // The page never sees the event, but reloading stays possible.
   event.stopImmediatePropagation();
+  if (event instanceof KeyboardEvent && isReloadShortcut(event)) return;
+  event.preventDefault();
 }
 
 /** Takes the overlay off the page, leaving the title frozen for an overlay about to replace it. */

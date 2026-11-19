@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { DEFAULT_SETTINGS } from "../src/shared/constants.ts";
 import { freshDailyUsage } from "../src/shared/daily.ts";
-import { overlayViewKey } from "../src/shared/overlay.ts";
+import { isReloadShortcut, overlayViewKey } from "../src/shared/overlay.ts";
 
 const usage = freshDailyUsage(new Date(2026, 10, 19, 12).getTime());
 const regular = { settings: DEFAULT_SETTINGS, usage };
@@ -21,5 +21,30 @@ describe("overlay view key", () => {
     expect(overlayViewKey("block-all", regular)).toBe(overlayViewKey("block-all", strict));
     expect(overlayViewKey("block-tracked", regular)).toBe(overlayViewKey("block-tracked", strict));
     expect(overlayViewKey(undefined, strict)).toBeUndefined();
+  });
+});
+
+describe("reload shortcut", () => {
+  const key = (
+    key: string,
+    modifiers: Partial<Record<"ctrlKey" | "metaKey" | "altKey", boolean>> = {},
+  ) => ({
+    key,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    ...modifiers,
+  });
+
+  test("recognises Cmd+R, Ctrl+Shift+R and F5", () => {
+    expect(isReloadShortcut(key("r", { metaKey: true }))).toBe(true);
+    expect(isReloadShortcut(key("R", { ctrlKey: true }))).toBe(true);
+    expect(isReloadShortcut(key("F5"))).toBe(true);
+  });
+
+  test("leaves other keys blocked", () => {
+    expect(isReloadShortcut(key("r"))).toBe(false);
+    expect(isReloadShortcut(key("r", { metaKey: true, altKey: true }))).toBe(false);
+    expect(isReloadShortcut(key("ArrowDown", { metaKey: true }))).toBe(false);
   });
 });
