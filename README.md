@@ -1,5 +1,5 @@
 > [!NOTE]
-> AI usage disclosure: Most of this project is AI generated.
+> AI usage disclosure: Most of the code in this project is AI generated.
 
 # Firefox Screen Time
 
