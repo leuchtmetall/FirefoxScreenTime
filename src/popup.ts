@@ -128,12 +128,15 @@ function updateFormButtons(): void {
   resetSettings.hidden = !changed;
 }
 
-/** Strict mode (as saved, not as edited) offers no way to stop tracking a tab or to undo today's usage. */
+/**
+ * Strict mode (as saved, not as edited) offers no way to undo today's usage, nor to stop tracking a
+ * tab once time is up.
+ */
 function renderStrictLocks(status: StatusSnapshot): void {
   const strict = status.settings.strictMode;
   const strictHint = "Not available in strict mode";
-  toggleTab.disabled = strict && status.currentTabTracked;
-  toggleTab.title = toggleTab.disabled ? strictHint : "";
+  toggleTab.disabled = strict && status.currentTabTracked && status.blocked;
+  toggleTab.title = toggleTab.disabled ? "Not available in strict mode once time is up" : "";
   resetToday.disabled = strict;
   resetToday.title = strict ? strictHint : "";
   if (strict) disarmReset();

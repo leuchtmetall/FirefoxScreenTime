@@ -290,8 +290,9 @@ async function setBlockTracked(enabled: boolean): Promise<void> {
 }
 
 async function setTabExclusion(tabId: number, excluded: boolean): Promise<void> {
-  if (excluded && settings.strictMode) {
-    throw new Error("Strict mode doesn't allow removing tabs from tracking.");
+  // Strict mode only guards the limit itself: while time remains, the tab may still leave tracking.
+  if (excluded && settings.strictMode && isDailyBlocked(usage, settings.dailyLimitMinutes)) {
+    throw new Error("Strict mode doesn't allow removing tabs from tracking once time is up.");
   }
   const tab = await browser.tabs.get(tabId);
   tabStates.set(
