@@ -2,6 +2,7 @@ import { freezeTitle, unfreezeTitle } from "./content/title-freeze.ts";
 import * as styles from "./overlay-styles.ts";
 import { MS_PER_MINUTE } from "./shared/constants.ts";
 import { allowedExtensions } from "./shared/daily.ts";
+import { isStrict, modeLabel } from "./shared/modes.ts";
 import { isReloadShortcut, overlayMode, overlayViewKey } from "./shared/overlay.ts";
 import type {
   ContentUpdate,
@@ -82,7 +83,8 @@ function buildPausedView(eyebrow: string, title: string, message: string): Overl
 }
 
 function buildTimeUpView(status: StatusSnapshot): OverlayView {
-  const allowed = allowedExtensions(status.settings.strictMode, status.usage);
+  const mode = status.settings.limitMode;
+  const allowed = allowedExtensions(isStrict(mode), status.usage);
   const extensions = (
     [
       ["Add 5 minutes", 5, styles.button],
@@ -101,10 +103,10 @@ function buildTimeUpView(status: StatusSnapshot): OverlayView {
   const note = createElement(
     "div",
     styles.note,
-    status.settings.strictMode
+    isStrict(mode)
       ? extensions.length > 0
-        ? `Strict mode: this is today's only extension. ${resets}`
-        : `Strict mode: today's extension is used. ${resets}`
+        ? `${modeLabel(mode)} mode: this is today's only extension. ${resets}`
+        : `${modeLabel(mode)} mode: today's extension is used. ${resets}`
       : resets,
   );
   const root = createDialog(

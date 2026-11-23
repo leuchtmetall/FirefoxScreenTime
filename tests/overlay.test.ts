@@ -5,11 +5,16 @@ import { isReloadShortcut, overlayViewKey } from "../src/shared/overlay.ts";
 
 const usage = freshDailyUsage(new Date(2026, 10, 19, 12).getTime());
 const regular = { settings: DEFAULT_SETTINGS, usage };
-const strict = { settings: { ...DEFAULT_SETTINGS, strictMode: true }, usage };
+const strict = { settings: { ...DEFAULT_SETTINGS, limitMode: "strict" as const }, usage };
+const superstrict = { settings: { ...DEFAULT_SETTINGS, limitMode: "superstrict" as const }, usage };
 
 describe("overlay view key", () => {
   test("changes the time-up view when switching between regular and strict mode", () => {
     expect(overlayViewKey("limit", regular)).not.toBe(overlayViewKey("limit", strict));
+  });
+
+  test("changes the time-up view when switching between strict and superstrict mode", () => {
+    expect(overlayViewKey("limit", strict)).not.toBe(overlayViewKey("limit", superstrict));
   });
 
   test("changes the strict time-up view once today's extension is used", () => {

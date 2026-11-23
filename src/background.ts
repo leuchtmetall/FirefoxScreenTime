@@ -8,6 +8,7 @@ import {
   MS_PER_MINUTE,
   STORAGE_BLOCK_ALL_KEY,
   STORAGE_BLOCK_TRACKED_KEY,
+  STORAGE_PENDING_MODE_KEY,
   STORAGE_SETTINGS_KEY,
   STORAGE_USAGE_KEY,
   TAB_EXCLUDED_KEY,
@@ -21,6 +22,7 @@ import {
   isDailyBlocked,
   rollUsageToNow,
 } from "./shared/daily.ts";
+import { isLimitMode, isStrict, modeLabel, superstrictViolation } from "./shared/modes.ts";
 import { validateSettings } from "./shared/settings.ts";
 import { setTabExcluded, trackTabManually, transitionTabState } from "./shared/tracking.ts";
 import type {
@@ -28,6 +30,7 @@ import type {
   ExtendDuration,
   ExtensionRequest,
   ExtensionResponse,
+  LimitMode,
   Settings,
   StatusSnapshot,
   TabTrackingState,
@@ -56,6 +59,8 @@ let usage: DailyUsage = freshDailyUsage(Date.now());
 let blockAll = false;
 /** Block-tracked mode: tracked tabs are covered regardless of remaining time. Persists until toggled off. */
 let blockTracked = false;
+/** A mode switch requested while in superstrict mode; it takes effect when the next day begins. */
+let pendingLimitMode: LimitMode | undefined;
 let focusedWindowId = browser.windows.WINDOW_ID_NONE;
 let activeTabId: number | undefined;
 let activeStartedAt: number | undefined;
@@ -88,7 +93,10 @@ async function initialize(): Promise<void> {
     STORAGE_USAGE_KEY,
     STORAGE_BLOCK_ALL_KEY,
     STORAGE_BLOCK_TRACKED_KEY,
+    STORAGE_PENDING_MODE_KEY,
   ]);
+  const storedPendingMode: unknown = stored[STORAGE_PENDING_MODE_KEY];
+  pendingLimitMode = isLimitMode(storedPendingMode) ? storedPendingMode : undefined;
   blockAll = stored[STORAGE_BLOCK_ALL_KEY] === true;
   blockTracked = stored[STORAGE_BLOCK_TRACKED_KEY] === true;
   const storedUsage = stored[STORAGE_USAGE_KEY] as DailyUsage | undefined;
@@ -97,8 +105,7 @@ async function initialize(): Promise<void> {
     settings = validateSettings(stored[STORAGE_SETTINGS_KEY]);
   usage = rollUsageToNow(storedUsage ?? freshDailyUsage(now), now);
   // The day changed while the browser was closed.
-  if (storedUsage && storedUsage.dayKey !== usage.dayKey && settings.startDayPaused)
-    blockTracked = true;
+  if (storedUsage && storedUsage.dayKey !== usage.dayKey) beginNewDay();
 
   const [tabs, lastFocused] = await Promise.all([
     browser.tabs.query({}),
@@ -133,12 +140,27 @@ async function initialize(): Promise<void> {
     [STORAGE_USAGE_KEY]: usage,
     [STORAGE_BLOCK_TRACKED_KEY]: blockTracked,
   });
+  await savePendingMode();
   await initializePresentation();
   beginActiveSession(now);
   await refreshAllTabs();
 }
 
 const ready = initialize();
+
+/** In-memory changes when a new day begins: pause if configured, and apply a pending mode switch. */
+function beginNewDay(): void {
+  if (settings.startDayPaused) blockTracked = true;
+  if (pendingLimitMode !== undefined) {
+    settings = { ...settings, limitMode: pendingLimitMode };
+    pendingLimitMode = undefined;
+  }
+}
+
+async function savePendingMode(): Promise<void> {
+  if (pendingLimitMode === undefined) await browser.storage.local.remove(STORAGE_PENDING_MODE_KEY);
+  else await browser.storage.local.set({ [STORAGE_PENDING_MODE_KEY]: pendingLimitMode });
+}
 
 function canAccumulate(): boolean {
   if (blockAll || blockTracked) return false;
@@ -177,9 +199,17 @@ async function settle(eventTime: number): Promise<number> {
   usage = accruedUsage(now);
   activeStartedAt = undefined;
   if (usage !== previous) {
-    // A new day began: pause before saving the rolled usage, so an interrupted write is retried on startup.
-    if (usage.dayKey !== previous.dayKey && settings.startDayPaused && !blockTracked)
-      await setBlockTracked(true);
+    // A new day began: apply its changes before saving the rolled usage, so an interrupted write is
+    // retried on startup.
+    if (usage.dayKey !== previous.dayKey) {
+      const modeChanges = pendingLimitMode !== undefined;
+      beginNewDay();
+      await browser.storage.local.set({
+        [STORAGE_BLOCK_TRACKED_KEY]: blockTracked,
+        ...(modeChanges ? { [STORAGE_SETTINGS_KEY]: settings } : {}),
+      });
+      if (modeChanges) await savePendingMode();
+    }
     await saveUsage();
   }
   return now;
@@ -204,6 +234,7 @@ function sharedStatus(): SharedStatus {
     blocked: isDailyBlocked(current, settings.dailyLimitMinutes),
     blockAll,
     blockTracked,
+    pendingLimitMode,
   };
 }
 
@@ -266,10 +297,21 @@ async function selectActiveTab(windowId: number): Promise<void> {
 }
 
 async function saveSettings(candidate: unknown): Promise<void> {
-  settings = validateSettings(candidate);
+  const next = validateSettings(candidate);
+  const violation = superstrictViolation(settings, next);
+  if (violation) throw new Error(violation);
+  // Superstrict mode can't be left on the day it is on: a switch away is deferred to the next day.
+  if (settings.limitMode === "superstrict") {
+    pendingLimitMode = next.limitMode === "superstrict" ? undefined : next.limitMode;
+    settings = { ...next, limitMode: "superstrict" };
+  } else {
+    pendingLimitMode = undefined;
+    settings = next;
+  }
   await browser.storage.local.set({ [STORAGE_SETTINGS_KEY]: settings });
-  // Strict mode has no "allow for today", so one granted earlier in regular mode ends here.
-  if (settings.strictMode && usage.blockingDisabled) {
+  await savePendingMode();
+  // Strict modes have no "allow for today", so one granted earlier in regular mode ends here.
+  if (isStrict(settings.limitMode) && usage.blockingDisabled) {
     usage = { ...usage, blockingDisabled: false };
     await saveUsage();
   }
@@ -290,8 +332,15 @@ async function setBlockTracked(enabled: boolean): Promise<void> {
 }
 
 async function setTabExclusion(tabId: number, excluded: boolean): Promise<void> {
+  if (excluded && settings.limitMode === "superstrict") {
+    throw new Error("Superstrict mode doesn't allow removing tabs from tracking.");
+  }
   // Strict mode only guards the limit itself: while time remains, the tab may still leave tracking.
-  if (excluded && settings.strictMode && isDailyBlocked(usage, settings.dailyLimitMinutes)) {
+  if (
+    excluded &&
+    settings.limitMode === "strict" &&
+    isDailyBlocked(usage, settings.dailyLimitMinutes)
+  ) {
     throw new Error("Strict mode doesn't allow removing tabs from tracking once time is up.");
   }
   const tab = await browser.tabs.get(tabId);
@@ -314,10 +363,11 @@ async function trackTab(tabId: number): Promise<void> {
 async function extend(durationMinutes: ExtendDuration): Promise<void> {
   if (blockAll) throw new Error("Turn off block-everything mode first.");
   if (blockTracked) throw new Error("Turn off block-tracked mode first.");
-  if (!allowedExtensions(settings.strictMode, usage).includes(durationMinutes)) {
+  const strict = isStrict(settings.limitMode);
+  if (!allowedExtensions(strict, usage).includes(durationMinutes)) {
     throw new Error(
-      settings.strictMode
-        ? "Strict mode allows a single 5 minute extension per day."
+      strict
+        ? `${modeLabel(settings.limitMode)} mode allows a single 5 minute extension per day.`
         : "Invalid extension duration.",
     );
   }
@@ -330,7 +380,9 @@ async function extend(durationMinutes: ExtendDuration): Promise<void> {
 
 /** Starts today over: clears used time and any extensions granted today. */
 async function resetToday(): Promise<void> {
-  if (settings.strictMode) throw new Error("Strict mode doesn't allow resetting today's usage.");
+  if (isStrict(settings.limitMode)) {
+    throw new Error(`${modeLabel(settings.limitMode)} mode doesn't allow resetting today's usage.`);
+  }
   usage = freshDailyUsage(Date.now());
   await saveUsage();
 }

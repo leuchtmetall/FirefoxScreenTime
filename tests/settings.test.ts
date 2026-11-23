@@ -12,14 +12,14 @@ describe("validateSettings", () => {
         trackedHostnames: ["https://B.example/x", "a.example", "b.example"],
         showBadge: false,
         startDayPaused: true,
-        strictMode: true,
+        limitMode: "superstrict",
       }),
     ).toEqual({
       dailyLimitMinutes: 45,
       trackedHostnames: ["a.example", "b.example"],
       showBadge: false,
       startDayPaused: true,
-      strictMode: true,
+      limitMode: "superstrict",
     });
   });
 
@@ -31,7 +31,21 @@ describe("validateSettings", () => {
     });
     expect(settings.showBadge).toBe(DEFAULT_SETTINGS.showBadge);
     expect(settings.startDayPaused).toBe(DEFAULT_SETTINGS.startDayPaused);
-    expect(settings.strictMode).toBe(false);
+    expect(settings.limitMode).toBe("regular");
+  });
+
+  test("migrates the legacy strict flag and rejects unknown modes", () => {
+    expect(validateSettings({ ...valid, limitMode: undefined, strictMode: true }).limitMode).toBe(
+      "strict",
+    );
+    expect(validateSettings({ ...valid, limitMode: undefined, strictMode: false }).limitMode).toBe(
+      "regular",
+    );
+    expect(validateSettings({ ...valid, limitMode: "extreme" }).limitMode).toBe("regular");
+    expect(validateSettings({ ...valid, limitMode: "strict", strictMode: false }).limitMode).toBe(
+      "strict",
+    );
+    expect(validateSettings({ ...valid, strictMode: true })).not.toHaveProperty("strictMode");
   });
 
   test("rejects limits outside 1 to 1440 whole minutes", () => {

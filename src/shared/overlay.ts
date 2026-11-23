@@ -1,4 +1,5 @@
 import { allowedExtensions } from "./daily.ts";
+import { isStrict } from "./modes.ts";
 import type { OverlayMode, StatusSnapshot } from "./types.ts";
 
 /**
@@ -19,16 +20,16 @@ export function overlayMode(
 
 /**
  * Identifies what an overlay shows, so it is rebuilt exactly when its content would change. The
- * time-up view differs between regular and strict mode and by which extensions remain today.
+ * time-up view differs between limit modes and by which extensions remain today.
  */
 export function overlayViewKey(
-  mode: OverlayMode | undefined,
+  overlay: OverlayMode | undefined,
   status: Pick<StatusSnapshot, "settings" | "usage">,
 ): string | undefined {
-  if (mode !== "limit") return mode;
-  const strict = status.settings.strictMode;
-  const allowed = allowedExtensions(strict, status.usage);
-  return `limit:${strict ? "strict" : "regular"}:${allowed.join(",")}`;
+  if (overlay !== "limit") return overlay;
+  const mode = status.settings.limitMode;
+  const allowed = allowedExtensions(isStrict(mode), status.usage);
+  return `limit:${mode}:${allowed.join(",")}`;
 }
 
 /**

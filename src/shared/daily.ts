@@ -41,14 +41,14 @@ export function effectiveLimitMs(usage: DailyUsage, dailyLimitMinutes: number): 
 }
 
 /**
- * The extensions that may be granted once the limit is reached. Strict mode allows a single
+ * The extensions that may be granted once the limit is reached. Strict modes allow a single
  * 5-minute extension per day; any extra time already granted today counts as that extension.
  */
 export function allowedExtensions(
-  strictMode: boolean,
+  strict: boolean,
   usage: Pick<DailyUsage, "extraMs">,
 ): ExtendDuration[] {
-  if (!strictMode) return [5, 15, "rest-of-day"];
+  if (!strict) return [5, 15, "rest-of-day"];
   return usage.extraMs > 0 ? [] : [5];
 }
 

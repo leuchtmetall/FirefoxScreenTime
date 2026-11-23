@@ -70,13 +70,15 @@
           <select
             id="limit-mode"
             name="limit-mode"
-            title="Strict allows a single 5 minute extension per day"
+            title="Strict allows a single 5 minute extension per day. Superstrict also locks the allowance, tracked sites and tabs until the next day."
           >
             <option value="regular">Regular</option>
             <option value="strict">Strict</option>
+            <option value="superstrict">Superstrict</option>
           </select>
           <button id="reset-today" class="secondary reset" type="button">Reset today</button>
         </div>
+        <p id="mode-note" class="hint mode-note" hidden></p>
 
         <label class="checkbox" for="show-badge">
           <input id="show-badge" name="show-badge" type="checkbox" />
@@ -99,7 +101,29 @@
         <p class="hint">
           One hostname per line. Subdomains are included. Tabs opened from tracked tabs inherit
           tracking.
+          <span id="hostnames-lock" hidden>Sites can't be removed in superstrict mode.</span>
         </p>
+
+        <div
+          id="superstrict-confirm"
+          class="confirm"
+          role="alertdialog"
+          aria-labelledby="superstrict-confirm-title"
+          hidden
+        >
+          <p id="superstrict-confirm-title" class="confirm-title">Activate superstrict mode?</p>
+          <p>In addition to strict mode's rules, while superstrict mode is on:</p>
+          <ul>
+            <li>tracked tabs can't be removed from tracking,</li>
+            <li>the daily allowance can't be raised,</li>
+            <li>tracked sites can't be removed,</li>
+            <li>switching to another mode only takes effect the next day.</li>
+          </ul>
+          <div class="confirm-actions">
+            <button id="superstrict-cancel" class="secondary" type="button">Cancel</button>
+            <button id="superstrict-activate" type="button">Activate superstrict</button>
+          </div>
+        </div>
 
         <div class="form-footer">
           <span id="feedback" role="status"></span>

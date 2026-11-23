@@ -257,6 +257,39 @@ textarea:focus {
   font-size: 10px;
   line-height: 1.45;
 }
+.mode-note {
+  margin-top: -4px;
+  color: #a54125;
+  font-weight: 750;
+}
+.confirm {
+  margin: 0 0 14px;
+  border: 1px solid #d85832;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fbf1e8;
+  color: #17231f;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.confirm p,
+.confirm ul {
+  margin: 0 0 6px;
+}
+.confirm ul {
+  padding-left: 18px;
+}
+.confirm-title {
+  color: #a54125;
+  font-size: 12px;
+  font-weight: 800;
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
 .form-footer {
   display: flex;
   align-items: center;

@@ -5,9 +5,16 @@ export interface Settings {
   showBadge: boolean;
   /** Turn on block-tracked mode at the start of every day, so tracked sites must be un-paused first. */
   startDayPaused: boolean;
-  /** Strict mode: the only way past the daily limit is a single 5-minute extension per day. */
-  strictMode: boolean;
+  limitMode: LimitMode;
 }
+
+/**
+ * - `regular`: extensions of 5 or 15 minutes, or the rest of the day.
+ * - `strict`: the only way past the daily limit is a single 5-minute extension per day.
+ * - `superstrict`: strict, and additionally the allowance can't be raised, tracked sites can't be
+ *   removed, tabs can't leave tracking, and switching to another mode only takes effect the next day.
+ */
+export type LimitMode = "regular" | "strict" | "superstrict";
 
 export interface DailyUsage {
   dayKey: string;
@@ -33,6 +40,8 @@ export interface StatusSnapshot {
   blockAll: boolean;
   /** Block-tracked mode: tracked tabs are blocked regardless of remaining time; the timer is paused. */
   blockTracked: boolean;
+  /** A mode switch requested in superstrict mode; it takes effect at the start of the next local day. */
+  pendingLimitMode: LimitMode | undefined;
   currentTabTracked: boolean;
   currentTabExcluded: boolean;
 }

@@ -6,6 +6,7 @@ export const STORAGE_SETTINGS_KEY = "settings";
 export const STORAGE_USAGE_KEY = "dailyUsage";
 export const STORAGE_BLOCK_ALL_KEY = "blockAll";
 export const STORAGE_BLOCK_TRACKED_KEY = "blockTracked";
+export const STORAGE_PENDING_MODE_KEY = "pendingLimitMode";
 export const TAB_INHERITED_KEY = "screenTimeInherited";
 export const TAB_EXCLUDED_KEY = "screenTimeExcluded";
 
@@ -14,5 +15,5 @@ export const DEFAULT_SETTINGS: Settings = {
   dailyLimitMinutes: 30,
   showBadge: true,
   startDayPaused: false,
-  strictMode: false,
+  limitMode: "regular",
 };

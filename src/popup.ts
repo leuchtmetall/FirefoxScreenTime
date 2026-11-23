@@ -1,7 +1,9 @@
 import { remainingMs } from "./shared/daily.ts";
+import { isLimitMode, isStrict, modeLabel } from "./shared/modes.ts";
 import type {
   ExtensionRequest,
   ExtensionResponse,
+  LimitMode,
   Settings,
   StatusSnapshot,
 } from "./shared/types.ts";
@@ -22,6 +24,12 @@ const toggleTab = requiredElement<HTMLButtonElement>("toggle-tab");
 const toggleBlockAll = requiredElement<HTMLButtonElement>("toggle-block-all");
 const toggleBlockTracked = requiredElement<HTMLButtonElement>("toggle-block-tracked");
 const resetToday = requiredElement<HTMLButtonElement>("reset-today");
+const modeNote = requiredElement("mode-note");
+const hostnamesLock = requiredElement("hostnames-lock");
+const superstrictConfirm = requiredElement("superstrict-confirm");
+const superstrictActivate = requiredElement<HTMLButtonElement>("superstrict-activate");
+const superstrictCancel = requiredElement<HTMLButtonElement>("superstrict-cancel");
+const MAX_DAILY_LIMIT_MINUTES = limitInput.max;
 let currentTabId: number | undefined;
 /** The last snapshot from the background and when it arrived, for ticking the timer between polls. */
 let lastStatus: StatusSnapshot | undefined;
@@ -87,9 +95,15 @@ function renderBlockToggles(status: StatusSnapshot): void {
   toggleBlockTracked.setAttribute("aria-pressed", String(status.blockTracked));
 }
 
-function populateForm({ settings }: StatusSnapshot): void {
+/** The mode the user last chose: a switch pending until tomorrow, or else the saved mode. */
+function chosenMode(status: Pick<StatusSnapshot, "settings" | "pendingLimitMode">): LimitMode {
+  return status.pendingLimitMode ?? status.settings.limitMode;
+}
+
+function populateForm(status: StatusSnapshot): void {
+  const { settings } = status;
   limitInput.value = String(settings.dailyLimitMinutes);
-  limitModeInput.value = settings.strictMode ? "strict" : "regular";
+  limitModeInput.value = chosenMode(status);
   hostnamesInput.value = settings.trackedHostnames.join("\n");
   showBadgeInput.checked = settings.showBadge;
   startDayPausedInput.checked = settings.startDayPaused;
@@ -99,7 +113,7 @@ function populateForm({ settings }: StatusSnapshot): void {
 function readForm(): Settings {
   return {
     dailyLimitMinutes: Number(limitInput.value),
-    strictMode: limitModeInput.value === "strict",
+    limitMode: isLimitMode(limitModeInput.value) ? limitModeInput.value : "regular",
     showBadge: showBadgeInput.checked,
     startDayPaused: startDayPausedInput.checked,
     trackedHostnames: hostnamesInput.value
@@ -109,12 +123,13 @@ function readForm(): Settings {
   };
 }
 
-/** Whether the form differs from the saved settings. */
-function formChanged(saved: Settings): boolean {
+/** Whether the form differs from the saved settings (taking a pending mode switch as the saved mode). */
+function formChanged(status: StatusSnapshot): boolean {
   const form = readForm();
+  const saved = status.settings;
   return (
     form.dailyLimitMinutes !== saved.dailyLimitMinutes ||
-    form.strictMode !== saved.strictMode ||
+    form.limitMode !== chosenMode(status) ||
     form.showBadge !== saved.showBadge ||
     form.startDayPaused !== saved.startDayPaused ||
     form.trackedHostnames.join("\n") !== saved.trackedHostnames.join("\n")
@@ -123,23 +138,40 @@ function formChanged(saved: Settings): boolean {
 
 /** Saving and resetting are only possible when the form has changes and no save is under way. */
 function updateFormButtons(): void {
-  const changed = !saving && lastStatus !== undefined && formChanged(lastStatus.settings);
+  const changed = !saving && lastStatus !== undefined && formChanged(lastStatus);
   saveButton.disabled = !changed;
   resetSettings.hidden = !changed;
 }
 
 /**
  * Strict mode (as saved, not as edited) offers no way to undo today's usage, nor to stop tracking a
- * tab once time is up.
+ * tab once time is up. Superstrict mode never lets a tab stop being tracked, and doesn't allow
+ * raising the allowance. The background enforces all of these; the popup only mirrors them.
  */
-function renderStrictLocks(status: StatusSnapshot): void {
-  const strict = status.settings.strictMode;
-  const strictHint = "Not available in strict mode";
-  toggleTab.disabled = strict && status.currentTabTracked && status.blocked;
-  toggleTab.title = toggleTab.disabled ? "Not available in strict mode once time is up" : "";
+function renderModeLocks(status: StatusSnapshot): void {
+  const mode = status.settings.limitMode;
+  const superstrict = mode === "superstrict";
+  const strict = isStrict(mode);
+  toggleTab.disabled =
+    status.currentTabTracked && (superstrict || (mode === "strict" && status.blocked));
+  toggleTab.title = !toggleTab.disabled
+    ? ""
+    : superstrict
+      ? "Not available in superstrict mode"
+      : "Not available in strict mode once time is up";
   resetToday.disabled = strict;
-  resetToday.title = strict ? strictHint : "";
+  resetToday.title = strict ? `Not available in ${modeLabel(mode).toLowerCase()} mode` : "";
   if (strict) disarmReset();
+  limitInput.max = superstrict
+    ? String(status.settings.dailyLimitMinutes)
+    : MAX_DAILY_LIMIT_MINUTES;
+  limitInput.title = superstrict ? "Superstrict mode doesn't allow raising the allowance" : "";
+  hostnamesLock.hidden = !superstrict;
+  modeNote.hidden = status.pendingLimitMode === undefined;
+  modeNote.textContent =
+    status.pendingLimitMode === undefined
+      ? ""
+      : `${modeLabel(mode)} mode stays on until midnight. ${modeLabel(status.pendingLimitMode)} mode starts tomorrow.`;
 }
 
 function render(status: StatusSnapshot): void {
@@ -148,7 +180,7 @@ function render(status: StatusSnapshot): void {
   renderTimer(status);
   renderTabState(status);
   renderBlockToggles(status);
-  renderStrictLocks(status);
+  renderModeLocks(status);
   updateFormButtons();
 }
 
@@ -207,12 +239,13 @@ async function runAction(
     if (status && successText !== undefined) feedback.textContent = successText;
   } finally {
     button.disabled = false;
-    if (lastStatus) renderStrictLocks(lastStatus);
+    if (lastStatus) renderModeLocks(lastStatus);
   }
 }
 
 /** After an edit: refreshes the buttons, wiggling the save button when the edit just enabled it. */
 function handleEdit(): void {
+  superstrictConfirm.hidden = true;
   const wasDisabled = saveButton.disabled;
   updateFormButtons();
   if (wasDisabled && !saveButton.disabled) saveButton.classList.add("wiggle");
@@ -222,26 +255,51 @@ form.addEventListener("input", handleEdit);
 form.addEventListener("change", handleEdit);
 saveButton.addEventListener("animationend", () => saveButton.classList.remove("wiggle"));
 
-form.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (saveButton.disabled) return;
+async function saveForm(): Promise<void> {
+  superstrictConfirm.hidden = true;
   feedback.textContent = "Saving...";
   saving = true;
   updateFormButtons();
   try {
-    const status = handleResponse(await request({ type: "save-settings", settings: readForm() }));
+    const requested = readForm();
+    const status = handleResponse(await request({ type: "save-settings", settings: requested }));
     if (status) {
       populateForm(status);
-      feedback.textContent = "Saved";
+      feedback.textContent =
+        status.pendingLimitMode === requested.limitMode
+          ? "Superstrict mode can't be turned off on the same day. Your change takes effect tomorrow."
+          : "Saved";
     }
   } finally {
     saving = false;
     updateFormButtons();
   }
+}
+
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (saveButton.disabled || !lastStatus) return;
+  // Superstrict mode can't be undone today, so activating it asks for confirmation first.
+  const activatesSuperstrict =
+    readForm().limitMode === "superstrict" && lastStatus.settings.limitMode !== "superstrict";
+  if (activatesSuperstrict) {
+    feedback.textContent = "";
+    superstrictConfirm.hidden = false;
+    superstrictActivate.focus();
+    return;
+  }
+  void saveForm();
+});
+
+superstrictActivate.addEventListener("click", () => void saveForm());
+superstrictCancel.addEventListener("click", () => {
+  superstrictConfirm.hidden = true;
+  saveButton.focus();
 });
 
 resetSettings.addEventListener("click", () => {
   if (!lastStatus) return;
+  superstrictConfirm.hidden = true;
   populateForm(lastStatus);
   feedback.textContent = "";
 });
