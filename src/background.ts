@@ -4,6 +4,12 @@ import {
   presentTab,
 } from "./background/presentation.ts";
 import {
+  IDLE_THRESHOLD_SECONDS,
+  isTrackedTabInUse,
+  shownTabs,
+  type ShownTab,
+} from "./shared/activity.ts";
+import {
   DEFAULT_SETTINGS,
   MS_PER_MINUTE,
   STORAGE_BLOCK_ALL_KEY,
@@ -61,8 +67,14 @@ let blockAll = false;
 let blockTracked = false;
 /** A mode switch requested while in superstrict mode; it takes effect when the next day begins. */
 let pendingLimitMode: LimitMode | undefined;
-let focusedWindowId = browser.windows.WINDOW_ID_NONE;
+/** The window that last had focus; it keeps this role while another application has focus. */
+let lastFocusedWindowId = browser.windows.WINDOW_ID_NONE;
+/** The active tab of the window that last had focus: the tab a request is about when it names none. */
 let activeTabId: number | undefined;
+/** The active tab of every window that isn't minimized; time runs while any of them is tracked. */
+let shown: ShownTab[] = [];
+/** No user input for `IDLE_THRESHOLD_SECONDS`. */
+let userIdle = false;
 let activeStartedAt: number | undefined;
 let lastAccountingAt = Date.now();
 let queue: Promise<unknown> = Promise.resolve();
@@ -107,13 +119,14 @@ async function initialize(): Promise<void> {
   // The day changed while the browser was closed.
   if (storedUsage && storedUsage.dayKey !== usage.dayKey) beginNewDay();
 
-  const [tabs, lastFocused] = await Promise.all([
+  const [tabs, lastFocused, idleState] = await Promise.all([
     browser.tabs.query({}),
     browser.windows.getLastFocused(),
+    browser.idle.queryState(IDLE_THRESHOLD_SECONDS),
+    refreshShownTabs(),
   ]);
-  focusedWindowId = lastFocused.focused
-    ? (lastFocused.id ?? browser.windows.WINDOW_ID_NONE)
-    : browser.windows.WINDOW_ID_NONE;
+  lastFocusedWindowId = lastFocused.id ?? browser.windows.WINDOW_ID_NONE;
+  userIdle = idleState === "idle";
 
   await Promise.all(
     tabs.map(async (tab) => {
@@ -131,7 +144,7 @@ async function initialize(): Promise<void> {
           false,
         ),
       );
-      if (tab.active && tab.windowId === focusedWindowId) activeTabId = tab.id;
+      if (tab.active && tab.windowId === lastFocusedWindowId) activeTabId = tab.id;
     }),
   );
 
@@ -164,9 +177,9 @@ async function savePendingMode(): Promise<void> {
 
 function canAccumulate(): boolean {
   if (blockAll || blockTracked) return false;
-  if (activeTabId === undefined || focusedWindowId === browser.windows.WINDOW_ID_NONE) return false;
+  const isTracked = (tabId: number) => tabStates.get(tabId)?.tracked === true;
   return (
-    tabStates.get(activeTabId)?.tracked === true &&
+    isTrackedTabInUse(shown, isTracked, userIdle) &&
     !isDailyBlocked(usage, settings.dailyLimitMinutes)
   );
 }
@@ -269,7 +282,8 @@ async function persistTabFlag(tabId: number, key: string, value: boolean): Promi
 
 async function checkpoint(): Promise<void> {
   const previous = usage;
-  await accounted(Date.now(), ignore);
+  // Also catches windows minimized or restored while another application had focus, which fires no event.
+  await accounted(Date.now(), refreshShownTabs);
   // With no active tracked tab and no day rollover, nothing visible can have changed.
   if (usage !== previous) await refreshAllTabs();
 }
@@ -288,12 +302,16 @@ async function setTabState(
 }
 
 async function selectActiveTab(windowId: number): Promise<void> {
-  if (windowId === browser.windows.WINDOW_ID_NONE) {
-    activeTabId = undefined;
-    return;
-  }
   const [tab] = await browser.tabs.query({ active: true, windowId });
   activeTabId = tab?.id;
+}
+
+async function refreshShownTabs(): Promise<void> {
+  const [windows, activeTabs] = await Promise.all([
+    browser.windows.getAll(),
+    browser.tabs.query({ active: true }),
+  ]);
+  shown = shownTabs(windows, activeTabs);
 }
 
 async function saveSettings(candidate: unknown): Promise<void> {
@@ -427,6 +445,16 @@ function isExtensionRequest(message: unknown): message is ExtensionRequest {
   return typeof type === "string" && Object.hasOwn(REQUEST_TYPES, type);
 }
 
+browser.idle.setDetectionInterval(IDLE_THRESHOLD_SECONDS);
+browser.idle.onStateChanged.addListener((state) => {
+  const eventTime = Date.now();
+  queueTask(() =>
+    accounted(eventTime, () => {
+      userIdle = state === "idle";
+    }),
+  );
+});
+
 browser.alarms.create(CHECKPOINT_ALARM, { periodInMinutes: 0.25 });
 browser.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === CHECKPOINT_ALARM) queueTask(checkpoint);
@@ -465,8 +493,9 @@ browser.webNavigation.onCommitted.addListener((details) => {
 browser.tabs.onActivated.addListener((activeInfo) => {
   const eventTime = Date.now();
   queueTask(async () => {
-    await accounted(eventTime, () => {
-      activeTabId = focusedWindowId === activeInfo.windowId ? activeInfo.tabId : undefined;
+    await accounted(eventTime, async () => {
+      if (activeInfo.windowId === lastFocusedWindowId) activeTabId = activeInfo.tabId;
+      await refreshShownTabs();
     });
     await refreshTab(activeInfo.tabId);
   });
@@ -476,8 +505,12 @@ browser.windows.onFocusChanged.addListener((windowId) => {
   const eventTime = Date.now();
   queueTask(async () => {
     await accounted(eventTime, async () => {
-      focusedWindowId = windowId;
-      await selectActiveTab(windowId);
+      // Losing focus to another application changes nothing shown, but minimizing a window also moves focus.
+      if (windowId !== browser.windows.WINDOW_ID_NONE) {
+        lastFocusedWindowId = windowId;
+        await selectActiveTab(windowId);
+      }
+      await refreshShownTabs();
     });
     await refreshAllTabs();
   });
@@ -490,6 +523,7 @@ browser.tabs.onRemoved.addListener((tabId) => {
       tabStates.delete(tabId);
       forgetPresentation(tabId);
       if (activeTabId === tabId) activeTabId = undefined;
+      shown = shown.filter((tab) => tab.id !== tabId);
     }),
   );
 });
@@ -507,12 +541,25 @@ browser.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
         transitionTabState(previous, tab.url, settings.trackedHostnames, false),
       );
       if (activeTabId === removedTabId) activeTabId = addedTabId;
+      shown = shown.map((shownTab) =>
+        shownTab.id === removedTabId ? { ...shownTab, id: addedTabId } : shownTab,
+      );
       if (previous?.inherited) await persistTabFlag(addedTabId, TAB_INHERITED_KEY, true);
       if (previous?.excluded) await persistTabFlag(addedTabId, TAB_EXCLUDED_KEY, true);
     });
     await representTab(addedTabId);
   });
 });
+
+browser.tabs.onUpdated.addListener(
+  (_tabId, _changeInfo, tab) => {
+    // Sound only matters for shown tabs, and only while the user is idle, but it is cheap to track.
+    if (!tab.active) return;
+    const eventTime = Date.now();
+    queueTask(() => accounted(eventTime, refreshShownTabs));
+  },
+  { properties: ["audible", "mutedInfo"] },
+);
 
 browser.runtime.onMessage.addListener(
   (message: unknown, sender): Promise<ExtensionResponse> | undefined => {

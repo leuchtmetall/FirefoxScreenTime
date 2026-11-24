@@ -42,7 +42,8 @@ Alternatively, build with `bun run build`, open `about:debugging#/runtime/this-f
 
 ## Behavior
 
-- Time accumulates only for the active tracked tab while its Firefox window is focused.
+- Time accumulates while the active tab of any Firefox window that isn't minimized is tracked, whether or not Firefox has focus and whether or not the window is hidden behind other windows.
+- After 5 minutes without keyboard or mouse input, time pauses until input resumes, unless a shown tracked tab is playing sound (and isn't muted), such as a video being watched.
 - Configured hostnames include their subdomains and share one daily allowance.
 - A new tab opened by a tracked tab inherits tracking, including across ordinary navigations.
 - Typing a non-tracked URL into an inherited tab removes its inherited tracking.
@@ -62,4 +63,5 @@ Alternatively, build with `bun run build`, open `about:debugging#/runtime/this-f
 - `alarms`: checkpoints active time every 15 seconds and detects day rollover.
 - `webNavigation`: identifies committed and explicitly typed top-level navigations.
 - `sessions`: stores inherited tracking on each tab without relying on reusable numeric tab IDs.
+- `idle`: pauses the timer while you're away from the computer.
 - `<all_urls>` host access: injects the visual blocker and evaluates child tabs, which may navigate to any HTTP or HTTPS URL. The extension does not inspect or modify subresource requests.
