@@ -15,7 +15,7 @@
     "@types/bun": "latest",
     "@types/firefox-webext-browser": "^120.0.4",
     "oxfmt": "^0.80.0",
-    "oxlint": "^1.90.0",
+    "oxlint": "^1.95.0",
     "typescript": "^7.0.2",
     "web-ext": "^10.8.0"
   }
